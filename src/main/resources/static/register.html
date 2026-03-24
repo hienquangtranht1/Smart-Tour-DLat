@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Ký - Smart Tour Đà Lạt</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        :root { --primary:#2563eb; --secondary:#16a34a; --bg-dark:#f8fafc; --bg-card:#ffffff; --text-muted:#64748b; }
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { background:var(--bg-dark); color:#1e293b; font-family:'Segoe UI',sans-serif; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; }
+        .register-card { background:var(--bg-card); border-radius:20px; padding:2.5rem; width:100%; max-width:560px; box-shadow:0 4px 15px rgba(0,0,0,.05); border:1px solid #e2e8f0; }
+        .logo { text-align:center; margin-bottom:1.5rem; }
+        .logo h1 { font-size:1.4rem; color:#818cf8; }
+        .logo p { color:var(--text-muted); font-size:.85rem; }
+        .steps-bar { display:flex; gap:.5rem; margin-bottom:2rem; }
+        .step-dot { flex:1; height:4px; background:#e2e8f0; border-radius:4px; transition:.3s; }
+        .step-dot.active { background:var(--primary); }
+        .step-dot.done { background:#10b981; }
+        .step { display:none; }
+        .step.active { display:block; }
+        .form-group { margin-bottom:1rem; }
+        .form-group label { display:block; font-size:.82rem; color:var(--text-muted); margin-bottom:.4rem; font-weight:600; }
+        .form-group input, .form-group select, .form-group textarea { width:100%; padding:.7rem 1rem; background:#ffffff; border:1px solid #cbd5e1; border-radius:10px; color:#1e293b; font-size:.9rem; transition:.2s; }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline:none; border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.1); }
+        .form-group select option { background:#ffffff; }
+        .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; }
+        .btn { width:100%; padding:.8rem; border:none; border-radius:10px; font-size:.95rem; font-weight:600; cursor:pointer; transition:.2s; margin-top:.5rem; }
+        .btn-primary { background:var(--primary); color:white; }
+        .btn-primary:hover { background:var(--primary-hover); transform:translateY(-1px); }
+        .btn-secondary { background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; }
+        .btn-secondary:hover { background:#e2e8f0; }
+        .btn-success { background:var(--secondary); color:white; }
+        .btn-sm-otp { padding:.7rem 1.2rem; background:var(--primary); color:white; border:none; border-radius:8px; font-size:.82rem; cursor:pointer; white-space:nowrap; }
+        .otp-row { display:flex; gap:.5rem; }
+        .otp-row input { flex:1; }
+        .type-selector { display:flex; gap:1rem; margin-bottom:1.5rem; }
+        .type-card { flex:1; padding:1.2rem; border:2px solid #e2e8f0; border-radius:12px; text-align:center; cursor:pointer; transition:.2s; }
+        .type-card:hover, .type-card.selected { border-color:var(--primary); background:rgba(37,99,235,.05); }
+        .type-card i { font-size:1.8rem; color:var(--primary); display:block; margin-bottom:.5rem; }
+        .type-card b { display:block; font-size:.9rem; }
+        .type-card small { color:var(--text-muted); font-size:.75rem; }
+        .divider { margin:1rem 0; border:none; border-top:1px solid #e2e8f0; }
+        .back-link { text-align:center; margin-top:1rem; font-size:.85rem; color:var(--text-muted); }
+        .back-link a { color:var(--secondary); text-decoration:none; }
+        .toast { position:fixed; top:20px; right:20px; padding:.8rem 1.2rem; border-radius:10px; font-size:.85rem; font-weight:600; z-index:9999; display:none; }
+        .toast.ok { background:#10b981; color:white; }
+        .toast.err { background:#ef4444; color:white; }
+        .section-title { font-size:.82rem; font-weight:700; color:var(--primary); text-transform:uppercase; letter-spacing:.5px; margin:1rem 0 .5rem; }
+        .otp-hint { font-size:.75rem; color:var(--text-muted); margin-top:.3rem; }
+    </style>
+</head>
+<body>
+<div class="register-card">
+    <div class="logo">
+        <h1>🏔️ Smart Tour Đà Lạt</h1>
+        <p>Tạo tài khoản của bạn</p>
+    </div>
+    <div class="steps-bar">
+        <div class="step-dot active" id="dot1"></div>
+        <div class="step-dot" id="dot2"></div>
+    </div>
+
+    <!-- BƯỚC 1: Chọn loại tài khoản -->
+    <div class="step active" id="step1">
+        <h3 style="margin-bottom:1rem;font-size:1rem">Bạn muốn đăng ký với tư cách?</h3>
+        <div class="type-selector">
+            <div class="type-card selected" id="typeUser" onclick="selectType('USER')">
+                <i class="fas fa-user-circle"></i>
+                <b>Khách Du Lịch</b>
+                <small>Tìm kiếm & đặt tour</small>
+            </div>
+            <div class="type-card" id="typeStaff" onclick="selectType('STAFF')">
+                <i class="fas fa-store"></i>
+                <b>Đại Lý Du Lịch</b>
+                <small>Đăng dịch vụ, quản lý tour</small>
+            </div>
+        </div>
+        <button class="btn btn-primary" onclick="goStep(2)">Tiếp theo <i class="fas fa-arrow-right"></i></button>
+        <div class="back-link"><a href="index.html">Đã có tài khoản? Đăng nhập</a></div>
+    </div>
+
+    <!-- BƯỚC 2: Điền thông tin -->
+    <div class="step" id="step2">
+        <h3 style="margin-bottom:1rem;font-size:1rem">Thông tin tài khoản</h3>
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Tên đăng nhập *</label>
+                <input type="text" id="regUsername" placeholder="VD: nguyenvana">
+            </div>
+            <div class="form-group">
+                <label>Mật khẩu *</label>
+                <input type="password" id="regPassword" placeholder="Tối thiểu 6 ký tự">
+            </div>
+        </div>
+        <div class="grid-2">
+            <div class="form-group">
+                <label>Họ và tên đầy đủ</label>
+                <input type="text" id="regFullName" placeholder="VD: Nguyễn Văn A">
+            </div>
+            <div class="form-group">
+                <label>Số điện thoại</label>
+                <input type="tel" id="regPhone" placeholder="0901234567">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Email (nhận OTP) *</label>
+            <div class="otp-row">
+                <input type="email" id="regEmail" placeholder="email@gmail.com">
+                <button class="btn-sm-otp" onclick="sendOtp()" id="btnSendOtp"><i class="fas fa-paper-plane"></i> Gửi OTP</button>
+            </div>
+        </div>
+
+        <div class="form-group" id="otpGroup" style="display:none; margin-top: 1rem; padding: 1rem; background: rgba(99,102,241,.1); border-radius: 10px; border: 1px dashed rgba(99,102,241,.4)">
+            <label style="color:#818cf8"><i class="fas fa-shield-alt"></i> Nhập mã xác thực OTP (6 số) *</label>
+            <div class="otp-row">
+                <input type="text" id="regOtp" placeholder="Nhập 6 số..." maxlength="6" style="font-size:1.2rem;text-align:center;letter-spacing:4px; font-weight: bold; background: rgba(0,0,0,.2)">
+            </div>
+            <p class="otp-hint" style="margin-top:0.5rem"><i class="fas fa-info-circle"></i> Vui lòng kiểm tra hộp thư đến hoặc thư rác.</p>
+        </div>
+
+        <!-- Phần dành riêng cho Đại lý -->
+        <div id="staffFields" style="display:none">
+            <hr class="divider">
+            <div class="section-title"><i class="fas fa-building"></i> Thông tin Đại lý / Công ty</div>
+            <div class="form-group">
+                <label>Tên Công ty / Đại lý *</label>
+                <input type="text" id="regAgencyName" placeholder="VD: Công ty Du lịch Đà Lạt Xanh">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Mã số Kinh doanh *</label>
+                    <input type="text" id="regBizLicense" placeholder="VD: 0123456789">
+                </div>
+                <div class="form-group">
+                    <label>Mã số Thuế</label>
+                    <input type="text" id="regTaxCode" placeholder="VD: 0123456789-001">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Địa chỉ Văn phòng</label>
+                <input type="text" id="regAddress" placeholder="VD: 123 Hoàng Diệu, TP. Đà Lạt">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Điện thoại Công ty</label>
+                    <input type="tel" id="regContactPhone" placeholder="0263.1234567">
+                </div>
+                <div class="form-group">
+                    <label>Website</label>
+                    <input type="url" id="regWebsite" placeholder="https://...">
+                </div>
+            </div>
+        </div>
+        <div style="display:flex; gap: 1rem; margin-top: 1.5rem;">
+            <button class="btn btn-secondary" onclick="goStep(1)"><i class="fas fa-arrow-left"></i> Quay lại</button>
+            <button class="btn btn-success" onclick="doRegister()" id="btnRegister" style="flex:2"><i class="fas fa-user-plus"></i> Hoàn tất Đăng ký</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+    let selectedRole = 'USER';
+    let otpSent = false;
+
+    function selectType(role) {
+        selectedRole = role;
+        document.getElementById('typeUser').classList.toggle('selected', role === 'USER');
+        document.getElementById('typeStaff').classList.toggle('selected', role === 'STAFF');
+        document.getElementById('staffFields').style.display = role === 'STAFF' ? 'block' : 'none';
+    }
+
+    function goStep(n) {
+        document.querySelectorAll('.step').forEach((s, i) => s.classList.toggle('active', i + 1 === n));
+        document.querySelectorAll('.step-dot').forEach((d, i) => {
+            d.classList.toggle('active', i + 1 === n);
+            d.classList.toggle('done', i + 1 < n);
+        });
+    }
+
+    async function sendOtp() {
+        const email = document.getElementById('regEmail').value.trim();
+        if (!email) { showToast('Vui lòng nhập email!', true); return; }
+        const btn = document.getElementById('btnSendOtp');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        try {
+            const res = await fetch('/api/auth/send-otp', { method: 'POST', body: new URLSearchParams({ email }) });
+            const d = await res.json();
+            showToast(d.message, !res.ok);
+            if (res.ok) { 
+                otpSent = true; 
+                document.getElementById('otpGroup').style.display = 'block'; 
+                document.getElementById('regOtp').focus();
+                let t = 60; 
+                const iv = setInterval(() => { 
+                    btn.innerHTML = `⏳ ${t}s`; 
+                    if (--t < 0) { clearInterval(iv); btn.disabled = false; btn.innerHTML = '<i class="fas fa-redo"></i> Gửi lại'; } 
+                }, 1000); 
+            }
+            else { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi OTP'; }
+        } catch { showToast('Lỗi kết nối!', true); btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi OTP'; }
+    }
+
+    async function doRegister() {
+        if (!otpSent) {
+            showToast('Bạn chưa gửi mã OTP đến Email!', true);
+            document.getElementById('regEmail').focus();
+            return;
+        }
+        const btn = document.getElementById('btnRegister');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xử lý...';
+        const params = new URLSearchParams({
+            username: document.getElementById('regUsername').value.trim(),
+            password: document.getElementById('regPassword').value,
+            email: document.getElementById('regEmail').value.trim(),
+            fullName: document.getElementById('regFullName').value.trim(),
+            phone: document.getElementById('regPhone').value.trim(),
+            otp: document.getElementById('regOtp').value.trim(),
+            role: selectedRole,
+        });
+        if (selectedRole === 'STAFF') {
+            params.append('agencyName', document.getElementById('regAgencyName').value.trim());
+            params.append('businessLicense', document.getElementById('regBizLicense').value.trim());
+            params.append('taxCode', document.getElementById('regTaxCode').value.trim());
+            params.append('address', document.getElementById('regAddress').value.trim());
+            params.append('contactPhone', document.getElementById('regContactPhone').value.trim());
+            params.append('website', document.getElementById('regWebsite').value.trim());
+        }
+        try {
+            const res = await fetch('/api/auth/register', { method: 'POST', body: params });
+            const d = await res.json();
+            showToast(d.message, !res.ok);
+            if (res.ok) setTimeout(() => location.href = 'index.html', 2000);
+            else { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> Hoàn tất Đăng ký'; }
+        } catch { showToast('Lỗi kết nối!', true); btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> Hoàn tất Đăng ký'; }
+    }
+
+    function showToast(msg, isErr) {
+        const t = document.getElementById('toast');
+        t.textContent = msg; t.className = 'toast ' + (isErr ? 'err' : 'ok');
+        t.style.display = 'block';
+        setTimeout(() => t.style.display = 'none', 3500);
+    }
+</script>
+</body>
+</html>

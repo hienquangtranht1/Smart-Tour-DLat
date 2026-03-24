@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Tour | Super Admin Dashboard</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        /* ── Table ── */
+        .table-wrap  { overflow-x:auto }
+        .data-table  { width:100%; border-collapse:collapse }
+        .data-table thead tr { border-bottom:2px solid rgba(99,102,241,.3) }
+        .data-table thead th { padding:.7rem 1rem; text-align:left; font-size:.72rem; text-transform:uppercase; letter-spacing:1px; color:var(--text-muted); font-weight:600 }
+        .data-table tbody tr { border-bottom:1px solid #e2e8f0; transition:background .2s }
+        .data-table tbody tr:hover { background:#f8fafc }
+        .data-table td { padding:.85rem 1rem; font-size:.875rem; vertical-align:middle }
+        .empty-row td { text-align:center; color:var(--text-muted); padding:2.5rem; font-size:.875rem }
+        .empty-cell  { text-align:center; color:var(--text-muted); padding:2rem; font-size:.875rem }
+
+        /* ── Badges ── */
+        .badge { display:inline-flex; align-items:center; gap:.3rem; padding:.3rem .8rem; border-radius:999px; font-size:.7rem; font-weight:700; letter-spacing:.5px }
+        .badge-success { background:rgba(16,185,129,.15);color:#34d399;border:1px solid rgba(16,185,129,.3) }
+        .badge-warn    { background:rgba(245,158,11,.15); color:#fbbf24;border:1px solid rgba(245,158,11,.3) }
+        .badge-info    { background:rgba(99,102,241,.15); color:#818cf8;border:1px solid rgba(99,102,241,.3) }
+
+        /* ── Thumb ── */
+        .thumb-img { width:54px;height:54px;object-fit:cover;border-radius:8px }
+
+        /* ── Action Group ── */
+        .action-group { display:flex;gap:.4rem;align-items:center }
+        .btn-sm    { padding:.4rem .9rem;font-size:.75rem;border-radius:8px }
+        .view-btn  { background:#f1f5f9;color:#475569;border:1px solid #e2e8f0;cursor:pointer;border-radius:8px;padding:.4rem .9rem;font-size:.75rem }
+        .view-btn:hover { background:#e2e8f0 }
+
+        /* ── Stat boxes ── */
+        .stat-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:1.5rem;margin-bottom:2rem }
+        .stat-box  { background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:16px;padding:1.5rem 1.75rem;display:flex;align-items:center;gap:1.25rem;backdrop-filter:blur(12px) }
+        .stat-icon { width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.4rem;flex-shrink:0 }
+        .stat-icon.blue  { background:rgba(99,102,241,.2);color:#818cf8 }
+        .stat-icon.green { background:rgba(16,185,129,.2);color:#34d399 }
+        .stat-icon.rose  { background:rgba(244,63,94,.2); color:#fb7185 }
+        .stat-text label { display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:.2rem }
+        .stat-text span  { font-size:1.75rem;font-weight:800;color:var(--text-main) }
+
+        /* ── Preview table in dashboard ── */
+        .dash-grid { display:grid;grid-template-columns:1fr 1fr;gap:1.5rem }
+
+        /* ── Config ── */
+        .config-item { display:flex;justify-content:space-between;align-items:center;padding:.9rem 1.2rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:10px;margin-bottom:.75rem }
+        .config-key  { font-weight:700;color:#818cf8;font-size:.85rem;padding-left:.75rem;border-left:3px solid #6366f1 }
+        .config-val  { font-size:.8rem;color:var(--text-muted);font-family:monospace;background:rgba(0,0,0,.3);padding:.3rem .75rem;border-radius:6px }
+
+        .form-2col { display:grid;grid-template-columns:1fr 2fr;gap:1rem;margin-bottom:1rem }
+    </style>
+</head>
+<body>
+<div class="dashboard-layout">
+
+    <!-- ── SIDEBAR ───────────────────────────────────────── -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <div style="width:42px;height:42px;background:linear-gradient(135deg,#6366f1,#f43f5e);border-radius:12px;display:flex;align-items:center;justify-content:center">
+                <i class="fas fa-shield-halved" style="color:var(--primary);font-size:1.1rem"></i>
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:.9rem">Quản Trị Viên</div>
+                <div style="font-size:.72rem;color:var(--text-muted)">Super Admin</div>
+            </div>
+        </div>
+
+        <nav>
+            <a href="#" class="nav-link active" data-target="dashboard"><i class="fas fa-chart-pie"></i> Dashboard</a>
+            <a href="#" class="nav-link" data-target="agencies"><i class="fas fa-building"></i> Đại Lý Du Lịch</a>
+            <a href="#" class="nav-link" data-target="services"><i class="fas fa-box-open"></i> Dịch Vụ Chờ Duyệt</a>
+            <a href="#" class="nav-link" data-target="users"><i class="fas fa-users"></i> Khách Hàng (User)</a>
+            <a href="#" class="nav-link" data-target="configs"><i class="fas fa-key"></i> API Keys Hệ Thống</a>
+            <a href="#" class="nav-link" data-target="notifications" id="btnNotifications" style="color:#fcd34d; position:relative;">
+                <i class="fas fa-bell"></i> Chuông Báo <span id="unreadCount" style="display:none;position:absolute;top:5px;left:25px;background:#ef4444;color:#fff;border-radius:50%;padding:2px 5px;font-size:10px;font-weight:bold;">0</span>
+            </a>
+        </nav>
+
+        <div style="margin-top:auto">
+            <a href="#" class="nav-link" style="color:#f43f5e" onclick="logout(event)">
+                <i class="fas fa-right-from-bracket"></i> Đăng xuất
+            </a>
+        </div>
+    </aside>
+
+    <!-- ── MAIN ───────────────────────────────────────────── -->
+    <main class="main-content">
+        <div class="header-top">
+            <div>
+                <h2 style="font-size:1.4rem;margin-bottom:.2rem">Super Admin Dashboard 👑</h2>
+                <p style="font-size:.8rem;color:var(--text-muted)">Quản lý toàn bộ hệ thống Smart Tour Đà Lạt</p>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="refreshAll()">
+                <i class="fas fa-rotate-right"></i> Làm mới
+            </button>
+        </div>
+
+        <!-- TAB: Dashboard -->
+        <div id="dashboard" class="tab-content animate-fade-in">
+            <div class="stat-grid" style="grid-template-columns:repeat(5,1fr)">
+                <div class="stat-box">
+                    <div class="stat-icon blue"><i class="fas fa-users"></i></div>
+                    <div class="stat-text"><label>Thành Viên</label><span id="stat-users">—</span></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-icon green"><i class="fas fa-building"></i></div>
+                    <div class="stat-text"><label>Đại Lý Liên Kết</label><span id="stat-agencies">—</span></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-icon blue"><i class="fas fa-shopping-cart"></i></div>
+                    <div class="stat-text"><label>Tổng Đơn Hàng</label><span id="stat-orders">—</span></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
+                    <div class="stat-text"><label>Doanh Thu (PAID)</label><span id="stat-revenue" style="font-size:1rem">—</span></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-icon rose"><i class="fas fa-coins"></i></div>
+                    <div class="stat-text"><label>Hoa Hồng Hệ Thống (5%)</label><span id="stat-commission" style="font-size:1rem;background:linear-gradient(to right,#818cf8,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent">—</span></div>
+                </div>
+            </div>
+
+            <div class="dash-grid">
+                <div class="glass-panel" style="padding:1.5rem">
+                    <h4 style="margin-bottom:1rem;font-size:.9rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">
+                        <i class="fas fa-clock-rotate-left" style="color:#818cf8"></i> Đại Lý Mới Nhất
+                    </h4>
+                    <table class="data-table"><thead><tr><th>Tên Đại Lý</th><th>Trạng Thái</th></tr></thead>
+                    <tbody id="dash-agencies-preview"></tbody></table>
+                </div>
+                <div class="glass-panel" style="padding:1.5rem">
+                    <h4 style="margin-bottom:1rem;font-size:.9rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px">
+                        <i class="fas fa-layer-group" style="color:#34d399"></i> Dịch Vụ Chờ Duyệt
+                    </h4>
+                    <table class="data-table"><thead><tr><th>Tên Dịch Vụ</th><th>Loại</th></tr></thead>
+                    <tbody id="dash-services-preview"></tbody></table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Đại Lý -->
+        <div id="agencies" class="tab-content animate-fade-in" style="display:none">
+            <div class="glass-panel" style="padding:1.75rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                    <h3><i class="fas fa-building" style="color:#818cf8"></i> Hồ Sơ Đại Lý Du Lịch</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="fetchAgencies()"><i class="fas fa-sync-alt"></i> Làm mới</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>Tên Đại Lý</th><th>Giấy Phép KD</th><th>Trạng Thái</th><th style="text-align:right">Thao Tác</th>
+                        </tr></thead>
+                        <tbody id="agenciesList">
+                            <tr class="empty-row"><td colspan="4"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Dịch Vụ -->
+        <div id="services" class="tab-content animate-fade-in" style="display:none">
+            <div class="glass-panel" style="padding:1.75rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                    <h3><i class="fas fa-box-open" style="color:#34d399"></i> Kho Dịch Vụ Cần Kiểm Duyệt</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="fetchServices()"><i class="fas fa-sync-alt"></i> Làm mới</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>Ảnh</th><th>Tên Sản Phẩm</th><th>Loại</th><th>Đại Lý Bán</th><th>Giá</th><th>Trạng Thái</th><th>Thao Tác</th>
+                        </tr></thead>
+                        <tbody id="servicesList">
+                            <tr class="empty-row"><td colspan="7"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: Khách Hàng (User) -->
+        <div id="users" class="tab-content animate-fade-in" style="display:none">
+            <div class="glass-panel" style="padding:1.75rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                    <h3><i class="fas fa-users" style="color:#818cf8"></i> Quản Lý Tài Khoản Khách Hàng</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="fetchUsers()"><i class="fas fa-sync-alt"></i> Làm mới</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>Khách Hàng</th><th>Email</th><th>Ngày Đăng Ký</th><th style="text-align:right">Thao Tác</th>
+                        </tr></thead>
+                        <tbody id="usersList">
+                            <tr class="empty-row"><td colspan="4"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: API Keys -->
+        <div id="configs" class="tab-content animate-fade-in" style="display:none">
+            <div class="glass-panel" style="padding:1.75rem;margin-bottom:1.5rem">
+                <h4 style="margin-bottom:1rem"><i class="fas fa-key" style="color:#fbbf24"></i> Thêm / Cập Nhật API Key</h4>
+                <form id="configForm" onsubmit="saveConfig(event)" class="form-2col">
+                    <input type="text" id="confKey" class="input-glass" placeholder="Tên Key (VD: GEMINI_API_KEY)" required>
+                    <input type="password" id="confValue" class="input-glass" placeholder="Giá trị Token bí mật..." required>
+                    <div></div>
+                    <button type="submit" class="btn btn-primary btn-sm" style="justify-self:start">
+                        <i class="fas fa-save"></i> Lưu Xuống DB
+                    </button>
+                </form>
+            </div>
+            <div class="glass-panel" style="padding:1.75rem">
+                <h4 style="margin-bottom:1rem"><i class="fas fa-list-check" style="color:#818cf8"></i> Các Key Đang Hoạt Động</h4>
+                <div id="configList"></div>
+            </div>
+        </div>
+
+        <!-- TAB: Lịch sử Thông báo -->
+        <div id="notifications" class="tab-content animate-fade-in" style="display:none">
+            <div class="glass-panel" style="padding:1.5rem">
+                <h3 style="margin-bottom:1.5rem"><i class="fas fa-bell" style="color:#fcd34d"></i> Danh sách Thông báo</h3>
+                <div style="display:flex; justify-content:flex-end; margin-bottom:1rem">
+                    <button class="btn btn-primary btn-sm" onclick="loadUnreadNotifications()"><i class="fas fa-sync"></i> Tải lại Thông báo</button>
+                </div>
+                <div id="notifList" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;min-height:300px;">
+                    <div style="padding:12px;color:#64748b;text-align:center"><i class="fas fa-spinner fa-spin"></i> Đang tải thông báo...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Modal Xem Chi tiết -->
+<div id="detail-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+    <div style="background:#ffffff;border:1px solid var(--glass-border);border-radius:20px;padding:2rem;width:520px;max-width:95vw;box-shadow:0 25px 60px rgba(0,0,0,.6);position:relative">
+        <button onclick="closeModal()" style="position:absolute;top:1rem;right:1rem;background:rgba(255,255,255,.1);border:none;color:#334155;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:1rem">
+            <i class="fas fa-times"></i>
+        </button>
+        <div id="modal-content"></div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" style="position:fixed;bottom:1.5rem;right:1.5rem;padding:.9rem 1.5rem;border-radius:10px;color:#334155;font-size:.875rem;font-weight:600;transform:translateY(100px);opacity:0;transition:all .35s cubic-bezier(.16,1,.3,1);z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;align-items:center;gap:.5rem;min-width:280px;pointer-events:none"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+<script src="js/main.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

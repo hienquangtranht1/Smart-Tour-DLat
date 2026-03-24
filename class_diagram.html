@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Sơ Đồ Class Hệ Thống Mới Nhất</title>
+    <!-- Trỏ đến thư viện Mermaid JS bản mới nhất qua CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            background-color: #f1f5f9; /* Màu nền xám nhạt nhẹ nhàng */
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        h2 {
+            color: #334155;
+            margin-bottom: 20px;
+        }
+        /* Style cho khối chứa sơ đồ */
+        .mermaid {
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); /* Viền đổ bóng nổi */
+            max-width: 98vw;
+            overflow: auto; /* Cho phép cuộn ngang dọc nếu sơ đồ quá to */
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+<body>
+    <h2><i class="fas fa-sitemap"></i> Sơ Sồ Thiết Kế Class Diagram</h2>
+    
+    <div class="mermaid" id="chart"></div>
+    <!-- Đoạn code Mermaid nhúng trực tiếp dạng Script Văn bản để chống lỗi DOM của ngoặc nhọn (<|) -->
+    <script type="text/plain" id="diagram-code">
+classDiagram
+    %% ================= KHỐI NGƯỜI DÙNG & QUYỀN =================
+    class NguoiDung {
+        +int id
+        +String tenDangNhap
+        +String matKhau
+        +String email
+        +String soDienThoai
+        +String vaiTro
+        +boolean trangThaiKhoa
+        +dangNhap()
+        +dangXuat()
+    }
+
+    class KhachDuLich {
+        +taoLichTrinhAI(nganSach, thoiGian, loaiHinh)
+        +datDichVu()
+        +xemBanDo()
+        +quanLyChiPhi()
+        +xuatFileOffline()
+    }
+
+    class DaiLyDuLich {
+        +String tenDaiLy
+        +String giayPhepKinhDoanh
+        +boolean trangThaiDuyet
+        +quanLyDichVu()
+        +duyetDonHang()
+        +deXuatDiaDiemMoi()
+    }
+
+    class QuanTriVien {
+        +pheDuyetDaiLy()
+        +pheDuyetDichVu()
+        +quanLyTaiKhoan()
+        +xemDashboard()
+        +quanLyCauHinh()
+    }
+
+    NguoiDung <|-- KhachDuLich
+    NguoiDung <|-- DaiLyDuLich
+    NguoiDung <|-- QuanTriVien
+
+    %% ================= KHỐI DỊCH VỤ =================
+    class DichVu {
+        <<abstract>>
+        +int id
+        +int idDaiLy
+        +String tenDichVu
+        +double giaGoc
+        +double giaBan
+        +String moTa
+        +String hinhAnh
+        +boolean trangThaiDuyet
+        +boolean trangThaiHoatDong
+    }
+
+    class Tour {
+        +String lichTrinhTour
+        +int soMaxNguoi
+        +String diemTapTrung
+    }
+
+    class PhongKhachSan {
+        +String tenKhachSan
+        +String loaiPhong
+        +int sucChua
+        +String tienIch
+    }
+
+    DichVu <|-- Tour
+    DichVu <|-- PhongKhachSan
+
+    %% ================= KHỐI LỊCH TRÌNH & ĐỊA ĐIỂM =================
+    class LichTrinh {
+        +int id
+        +int idKhachDuLich
+        +String tenLichTrinh
+        +Date ngayBatDau
+        +Date ngayKetThuc
+        +double nganSach
+        +String phuongTien
+        +String loaiHinhThamQuan
+        +String fileExportOffline
+        +chayThuatToanAI()
+    }
+
+    class ChiTietLichTrinh {
+        +int id
+        +int idLichTrinh
+        +Date ngay
+        +String buoi
+        +int idDiaDiem
+        +double khoangCach
+    }
+
+    class DiaDiem {
+        +int id
+        +String tenDiaDiem
+        +String loaiHinh
+        +double toaDoLat
+        +double toaDoLng
+        +String moTa
+        +double giaVeXuat
+        +String hinhAnh
+    }
+
+    %% ================= KHỐI ĐẶT HÀNG & CHI PHÍ =================
+    class DonHang {
+        +int id
+        +int idKhachDuLich
+        +int idDaiLy
+        +int idLichTrinh
+        +double tongTien
+        +String trangThai
+        +Date thoiGianDat
+    }
+
+    class ChiTietDonHang {
+        +int id
+        +int idDonHang
+        +int idDichVu
+        +int soLuong
+        +double donGia
+    }
+
+    class HoaDonNhom {
+        +int id
+        +int idLichTrinh
+        +double tongChiPhi
+        +int soNguoi
+        +String chiTietChiaTien
+        +tinhToan()
+    }
+
+    %% ================= KHỐI CẤU HÌNH HỆ THỐNG =================
+    class CauHinhHeThong {
+        +int id
+        +String loaiKey
+        +String giaTriKey
+    }
+
+    %% ======== MỐI QUAN HỆ CỦA QUẢN TRỊ VIÊN (ADMIN) ========
+    QuanTriVien "1" -- "*" DaiLyDuLich : 1. Phê duyệt tham gia
+    QuanTriVien "1" -- "*" DichVu : 2. Phê duyệt đăng tải
+    QuanTriVien "1" -- "*" NguoiDung : 3. Quản lý tài khoản
+    QuanTriVien "1" -- "*" CauHinhHeThong : 4. Quản lý API Key
+
+    %% ======== MỐI QUAN HỆ CỦA ĐẠI LÝ DU LỊCH (STAFF) ========
+    DaiLyDuLich "1" -- "*" DichVu : Quản lý dịch vụ
+    DaiLyDuLich "1" -- "*" DonHang : Duyệt đơn hàng
+    DaiLyDuLich "1" -- "*" DiaDiem : Hỗ trợ dữ liệu mới
+
+    %% ======== MỐI QUAN HỆ CỦA KHÁCH DU LỊCH (USER) ========
+    KhachDuLich "1" -- "*" LichTrinh : Thiết kế AI
+    KhachDuLich "1" -- "*" DonHang : Đặt dịch vụ
+
+    %% ======== MỐI QUAN HỆ LÕI (CORE) ========
+    LichTrinh "1" -- "*" ChiTietLichTrinh : Có các buổi (Sáng-Trưa-Tối)
+    ChiTietLichTrinh "*" -- "1" DiaDiem : Điểm đến (OpenStreetMap)
+    LichTrinh "1" -- "0..1" HoaDonNhom : Quản lý hóa đơn nhóm
+    LichTrinh "1" -- "0..*" DonHang : Kết nối lịch trình & đơn đặt
+
+    %% ======== MỐI QUAN HỆ GIỎ HÀNG (BOOKING) ========
+    DonHang "1" -- "*" ChiTietDonHang : Chứa
+    ChiTietDonHang "*" -- "1" DichVu : Ánh xạ
+    </script>
+
+    <script>
+        // Cấu hình khởi tạo: vẽ trên tông nền chuẩn
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        document.getElementById('chart').textContent = document.getElementById('diagram-code').textContent;
+        mermaid.init(undefined, document.getElementById('chart'));
+    </script>
+</body>
+</html>

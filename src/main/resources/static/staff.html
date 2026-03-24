@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Tour | Staff Dashboard – Đại lý Du lịch</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        /* ── Staff Specific Styles ── */
+        .svc-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:1.2rem }
+        .svc-form-grid .span-2 { grid-column:span 2 }
+    </style>
+</head>
+<body>
+<div class="dashboard-layout">
+
+    <!-- ── SIDEBAR ───────────────────────────────────────── -->
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <i class="fas fa-store text-secondary" style="font-size:1.8rem"></i>
+            <div>
+                <h2 class="text-gradient" style="font-size:.95rem" id="agencyName">Đại Lý</h2>
+                <p class="text-muted" style="font-size:.72rem">Smart Tour Staff</p>
+            </div>
+        </div>
+
+        <nav>
+            <a href="#" class="nav-link active" data-target="manage">
+                <i class="fas fa-box-open"></i> Quản lý Dịch vụ
+            </a>
+            <a href="#" class="nav-link" data-target="orders">
+                <i class="fas fa-clipboard-list"></i> Duyệt Đơn Đặt Hàng
+            </a>
+            <a href="#" class="nav-link" data-target="revenue">
+                <i class="fas fa-chart-line"></i> Doanh Thu & Hoa Hồng
+            </a>
+            <a href="#" class="nav-link" data-target="locations">
+                <i class="fas fa-map-pin"></i> Hỗ trợ Địa điểm (AI)
+            </a>
+            <a href="#" class="nav-link" data-target="notifications" id="btnNotifications" style="color:#fcd34d; position:relative;">
+                <i class="fas fa-bell"></i> Chuông Báo <span id="unreadCount" style="display:none;position:absolute;top:5px;left:25px;background:#ef4444;color:#fff;border-radius:50%;padding:2px 5px;font-size:10px;font-weight:bold;">0</span>
+            </a>
+        </nav>
+
+        <div style="margin-top:auto">
+            <a href="profile.html" class="nav-link" style="color:#818cf8; margin-bottom:0.5rem">
+                <i class="fas fa-user-circle"></i> Hồ sơ doanh nghiệp
+            </a>
+            <a href="index.html" class="nav-link" style="color:#f43f5e">
+                <i class="fas fa-sign-out-alt"></i> Đăng xuất
+            </a>
+        </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ───────────────────────────────────── -->
+    <main class="main-content">
+        <div class="header-top">
+            <h2 class="text-2xl">🏪 Staff Dashboard – Đại Lý Du Lịch</h2>
+        </div>
+
+        <!-- TAB 1: QUẢN LÝ DỊCH VỤ -->
+        <div id="manage" class="tab-content animate-fade-in" style="display:block">
+
+            <!-- Form đăng dịch vụ mới -->
+            <div class="glass-panel" style="padding:2rem;margin-bottom:1.5rem">
+                <h3 style="margin-bottom:1rem"><i class="fas fa-plus-circle text-primary"></i> Đăng Tải Dịch Vụ / Tour / Khách sạn Mới</h3>
+                <form id="serviceForm" class="svc-form-grid">
+                    <div class="flex-col gap-2">
+                        <label class="text-sm">Tên dịch vụ <span style="color:#f43f5e">*</span></label>
+                        <input type="text" id="svcName" class="input-glass" placeholder="VD: Tour Săn Mây Langbiang" required>
+                    </div>
+                    <div class="flex-col gap-2">
+                        <label class="text-sm">Loại hình <span style="color:#f43f5e">*</span></label>
+                        <select id="svcType" class="input-glass" style="background:var(--bg-dark)">
+                            <option value="TOUR">Tour Tham Quan</option>
+                            <option value="HOTEL">Khách sạn / Resort</option>
+                            <option value="RESTAURANT">Nhà hàng / Quán ăn</option>
+                            <option value="CAFE">Tiệm Cà Phê</option>
+                            <option value="ENTERTAINMENT">Khu Vui Chơi / Giải trí</option>
+                        </select>
+                    </div>
+                    <div class="flex-col gap-2">
+                        <label class="text-sm">Giá niêm yết (VNĐ) <span style="color:#f43f5e">*</span></label>
+                        <input type="number" id="svcPrice" class="input-glass" placeholder="550000" min="0" required>
+                    </div>
+                    <div class="flex-col gap-2">
+                        <label class="text-sm">Ảnh đại diện (JPG/PNG)</label>
+                        <input type="file" id="svcImage" class="input-glass" accept="image/*">
+                        <img id="svcImagePreview" style="display:none;width:100px;height:100px;object-fit:cover;border-radius:8px;margin-top:5px;border:1px solid rgba(255,255,255,0.2)">
+                    </div>
+
+                    <!-- ── Chỉ dành cho Tour ── -->
+                    <div class="flex-col gap-2 tour-only">
+                        <label class="text-sm">Số người tối đa</label>
+                        <input type="number" id="svcMaxPeople" class="input-glass" placeholder="VD: 15" min="1">
+                    </div>
+                    <div class="flex-col gap-2 tour-only">
+                        <label class="text-sm">Số chuyến phục vụ cùng lúc <span style="color:#f43f5e">*</span></label>
+                        <input type="number" id="svcAvailableTrips" class="input-glass" placeholder="VD: 5 chuyến" min="1">
+                    </div>
+                    <div class="flex-col gap-2 tour-only">
+                        <label class="text-sm">Số ngày đi</label>
+                        <input type="number" id="svcDuration" class="input-glass" placeholder="VD: 3" min="1">
+                    </div>
+                    <div class="span-2 flex-col gap-2 tour-only">
+                        <label class="text-sm">Phương tiện di chuyển</label>
+                        <input type="text" id="svcTransport" class="input-glass" placeholder="VD: Xe khách 45 chỗ">
+                    </div>
+                    <!-- ─────────────────────── -->
+                    <!-- ── Không phải Tour ── -->
+                    <div class="span-2 flex-col gap-2 not-tour" style="display:none">
+                        <label class="text-sm">Khung Giờ Hoạt Động (Dành cho Quán ăn, Cà phê...)</label>
+                        <div style="display:flex;gap:1rem">
+                            <input type="text" id="svcOpenTime" class="input-glass" placeholder="Mở cửa (VD: 07:00)">
+                            <input type="text" id="svcCloseTime" class="input-glass" placeholder="Đóng cửa (VD: 22:30)">
+                        </div>
+                    </div>
+                    <!-- ── Chỉ dành cho Hotel ── -->
+                    <div class="span-2 flex-col gap-2 hotel-only" style="display:none">
+                        <label class="text-sm">Số lượng phòng trống cơ sở</label>
+                        <input type="number" id="svcAvailableRooms" class="input-glass" placeholder="VD: 10 phòng">
+                    </div>
+                    <!-- ─────────────────────── -->
+                    <div class="span-2 flex-col gap-2">
+                        <label class="text-sm">Mô tả ngắn</label>
+                        <textarea id="svcDesc" class="input-glass" placeholder="Bao gồm: Hướng dẫn viên, đón tại khách sạn, phiếu ăn sáng..." rows="3" style="resize:vertical"></textarea>
+                    </div>
+
+                    <!-- Bản đồ gắn tọa độ -->
+                    <div class="span-2">
+                        <label class="text-sm"><i class="fas fa-map-pin text-accent"></i> Thiết lập Toạ độ GPS
+                            <span id="map-instruction" class="text-muted" style="font-size:.78rem">(Chạm liên tiếp 1–5 điểm để vẽ Lộ trình Tour)</span>
+                        </label>
+                        <div id="service-map" style="width:100%;height:320px;border-radius:12px;margin-top:.6rem;overflow:hidden"></div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:.6rem;gap:1rem">
+                            <input type="text" id="svcMapPoints" class="input-glass" placeholder="Toạ độ tự điền khi chấm bản đồ..." readonly style="flex:1">
+                            <button type="button" class="btn btn-danger btn-sm" onclick="clearServiceMap()">
+                                <i class="fas fa-eraser"></i> Xoá Tuyến Đường
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="span-2" style="text-align:right">
+                        <input type="hidden" id="editServiceId" value="">
+                        <button type="button" class="btn btn-secondary" id="btnCancelEdit" style="display:none;margin-right:8px" onclick="cancelEdit()">Hủy Cập Nhật</button>
+                        <button type="submit" class="btn btn-success" id="btnSaveService">
+                            <i class="fas fa-cloud-upload-alt"></i> Lưu &amp; Gửi Duyệt Admin
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Bảng danh sách dịch vụ của đại lý -->
+            <div class="glass-panel" style="padding:1.75rem">
+                <div style="display:flex;justify-content:space-between;margin-bottom:1rem;align-items:center">
+                    <h3><i class="fas fa-list text-primary"></i> Dịch vụ của Đại lý bạn</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="fetchServices()"><i class="fas fa-sync-alt"></i> Làm mới</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>Ảnh</th><th>Tên / Mô tả</th><th>Loại</th><th>Giá</th><th>Trạng thái Admin</th><th style="text-align:right">Thao Tác</th>
+                        </tr></thead>
+                        <tbody id="servicesList">
+                            <tr><td colspan="6" class="empty-cell"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: ĐƠN ĐẶT HÀNG -->
+        <div id="orders" class="tab-content animate-fade-in" style="display:none">
+            <div class="glass-panel" style="padding:1.75rem">
+                <div style="display:flex;justify-content:space-between;margin-bottom:1rem;align-items:center">
+                    <h3><i class="fas fa-money-check-alt text-secondary"></i> Xử lý Đơn Đặt từ Khách hàng</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="fetchOrders()"><i class="fas fa-sync-alt"></i> Làm mới</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>Mã Đơn</th><th>Khách hàng</th><th>Dịch vụ</th><th>Tổng Tiền</th><th>Thao tác</th>
+                        </tr></thead>
+                        <tbody id="ordersList">
+                            <tr><td colspan="5" class="empty-cell"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB DOANH THU & HOA HỒNG -->
+        <div id="revenue" class="tab-content animate-fade-in" style="display:none">
+            <div class="glass-panel" style="padding:1.75rem;margin-bottom:1.5rem">
+                <div style="display:flex;justify-content:space-between;margin-bottom:1.2rem;align-items:center">
+                    <h3><i class="fas fa-chart-line text-primary"></i> Thống Kê Doanh Thu &amp; Hoa Hồng Nộp Hệ Thống</h3>
+                    <button class="btn btn-secondary btn-sm" onclick="fetchRevenue()"><i class="fas fa-sync-alt"></i> Làm mới</button>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;margin-bottom:1.5rem">
+                    <div class="glass-panel" style="padding:1.2rem;text-align:center">
+                        <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem">Tổng Doanh Thu Đã Thu</div>
+                        <div style="font-size:1.5rem;font-weight:800;color:var(--text-main)" id="rv-total">—</div>
+                    </div>
+                    <div class="glass-panel" style="padding:1.2rem;text-align:center;border-color:rgba(244,63,94,.3)">
+                        <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem">💰 Hoa Hồng Đã Nộp Admin (5%)</div>
+                        <div style="font-size:1.5rem;font-weight:800;color:#f43f5e" id="rv-commission">—</div>
+                    </div>
+                    <div class="glass-panel" style="padding:1.2rem;text-align:center;border-color:rgba(16,185,129,.3)">
+                        <div style="font-size:.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:.5rem">✅ Lợi Nhuận Thực Tế (95%)</div>
+                        <div style="font-size:1.5rem;font-weight:800;color:#34d399" id="rv-net">—</div>
+                    </div>
+                </div>
+                <h4 style="margin-bottom:.8rem"><i class="fas fa-history"></i> Lịch Sử Các Lần Nộp Hoa Hồng</h4>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr>
+                            <th>Mã Đơn</th><th>Doanh Thu Đơn</th><th>Hoa Hồng 5%</th><th>Trạng Thái</th><th>Thời Gian</th>
+                        </tr></thead>
+                        <tbody id="commissionHistory">
+                            <tr><td colspan="5" class="empty-cell">Bấm Làm Mới để tải dữ liệu</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: HỖ TRỢ ĐỊA ĐIỂM (AI LEARNING) -->
+        <div id="locations" class="tab-content animate-fade-in" style="display:none">
+            <div class="glass-panel" style="padding:2rem;margin-bottom:1.5rem">
+                <h3 style="margin-bottom:.5rem"><i class="fas fa-map-pin text-accent"></i> Thêm Điểm Vui Chơi Mới cho AI Học</h3>
+                <p class="text-muted" style="font-size:.85rem;margin-bottom:1.2rem">
+                    Chấm tọa độ trực tiếp trên bản đồ. AI sẽ sử dụng dữ liệu này để gợi ý lịch trình phù hợp hơn cho Khách.
+                </p>
+                <form id="locationForm" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;align-items:end">
+                    <div class="flex-col gap-2">
+                        <label class="text-sm">Tên địa điểm <span style="color:#f43f5e">*</span></label>
+                        <input type="text" id="locName" class="input-glass" placeholder="VD: Quán Cafe Mây Trên Đỉnh" required>
+                    </div>
+                    <div class="flex-col gap-2">
+                        <label class="text-sm">Toạ độ GPS (tự điền khi chấm)</label>
+                        <input type="text" id="locCoords" class="input-glass" placeholder="11.940419, 108.458313" readonly>
+                    </div>
+                    <div>
+                        <button type="submit" class="btn btn-primary" style="width:100%">
+                            <i class="fas fa-save"></i> Lưu Địa Điểm
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="glass-panel" style="padding:1rem">
+                <div id="osm-map" style="width:100%;height:500px;border-radius:12px;overflow:hidden"></div>
+            </div>
+        </div>
+
+        <!-- TAB: Màn hình Thông báo -->
+        <div id="notifications" class="tab-content animate-fade-in" style="display:none">
+            <div class="glass-panel" style="padding:1.5rem">
+                <h3 style="margin-bottom:1.5rem"><i class="fas fa-bell" style="color:#fcd34d"></i> Danh sách Thông báo</h3>
+                <div style="display:flex; justify-content:flex-end; margin-bottom:1rem">
+                    <button class="btn btn-primary btn-sm" onclick="loadUnreadNotifications()"><i class="fas fa-sync"></i> Tải lại Thông báo</button>
+                </div>
+                <div id="notifList" style="background:#ffffff;border:1px solid #e2e8f0;border-radius:8px;padding:1rem;min-height:300px;">
+                    <div style="padding:12px;color:#64748b;text-align:center"><i class="fas fa-spinner fa-spin"></i> Đang tải thông báo...</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<!-- Toast Container -->
+<div id="toast" style="position:fixed;bottom:1.5rem;right:1.5rem;padding:.9rem 1.5rem;border-radius:10px;color:#fff;font-size:.875rem;font-weight:600;transform:translateY(100px);opacity:0;transition:all .35s cubic-bezier(.16,1,.3,1);z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;align-items:center;gap:.5rem;min-width:280px;pointer-events:none"></div>
+
+<script src="js/main.js"></script>
+<script src="js/staff.js"></script>
+</body>
+</html>
