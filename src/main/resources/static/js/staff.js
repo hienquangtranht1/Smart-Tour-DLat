@@ -68,7 +68,10 @@ function connectWebSocket(topicNode) {
                 showToast(msg.body);
             }
             loadUnreadNotifications();
-            fetchOrders(); 
+            fetchOrders();
+            // Nếu có thông báo PAID thì cập nhật dờ doanh thu luôn
+            const revenueTab = document.getElementById('revenue');
+            if (revenueTab && revenueTab.style.display !== 'none') fetchRevenue();
         });
     });
 }
@@ -194,7 +197,10 @@ async function fetchOrders() {
 async function approveOrder(id) {
     try {
         const res = await fetch(`/api/staff/orders/${id}/approve`, { method: 'POST' });
-        if (res.ok) { showToast('Đã xác nhận đơn hàng #' + String(id).padStart(5,'0')); fetchOrders(); }
+        if (res.ok) {
+            showToast('Đã xác nhận đơn hàng #' + String(id).padStart(5,'0'));
+            setTimeout(() => { fetchOrders(); fetchServices(); }, 400); // chờ backend commit
+        }
         else {
             try { const dt = await res.json(); showToast(dt.error || 'Lỗi xác nhận đơn!', true); } 
             catch(e) { showToast('Lỗi HTTP: ' + res.status, true); }
@@ -206,7 +212,10 @@ async function deleteOrder(id) {
     if (!confirm('Hành động này sẽ Hủy Đơn hàng #'+String(id).padStart(5,'0')+'. Bạn chắc chắn chứ?')) return;
     try {
         const res = await fetch(`/api/staff/orders/${id}/cancel`, { method: 'POST' });
-        if (res.ok) { showToast('Đã hủy đơn hàng thành công!'); fetchOrders(); }
+        if (res.ok) { 
+            showToast('Đã hủy đơn hàng & hoàn trả lại slot trống thành công!'); 
+            setTimeout(() => { fetchOrders(); fetchServices(); }, 400);
+        }
         else {
             try { const dt = await res.json(); showToast(dt.error || 'Lỗi thao tác hủy!', true); } 
             catch(e) { showToast('Lỗi hệ thống: HTTP ' + res.status, true); }
@@ -218,7 +227,10 @@ async function startTrip(id) {
     if (!confirm('Bạn xác nhận Bắt đầu chuyến đi này? Khách hàng sẽ nhận thông báo.')) return;
     try {
         const res = await fetch(`/api/staff/orders/${id}/start`, { method: 'POST' });
-        if (res.ok) { showToast('Đã thiết lập trạng thái Đang tiến hành!'); fetchOrders(); }
+        if (res.ok) {
+            showToast('Đã thiết lập trạng thái Đang tiến hành!');
+            setTimeout(() => fetchOrders(), 400);
+        }
         else {
             try { const dt = await res.json(); showToast(dt.error || 'Lỗi thao tác!', true); }
             catch(e) { showToast('Lỗi HTTP: ' + res.status, true); }
@@ -230,7 +242,10 @@ async function completeTrip(id) {
     if (!confirm('Bạn xác nhận khách hàng đã Hoàn thành chuyến đi? (Sẽ hoàn lại Slot/Số Chuyến vào Dịch vụ)')) return;
     try {
         const res = await fetch(`/api/staff/orders/${id}/complete`, { method: 'POST' });
-        if (res.ok) { showToast('Đã Hoàn thành chuyến đi và hoàn Slot!'); fetchOrders(); }
+        if (res.ok) { 
+            showToast('Đã Hoàn thành chuyến đi và hoàn Slot!'); 
+            setTimeout(() => { fetchOrders(); fetchServices(); }, 400);
+        }
         else {
             try { const dt = await res.json(); showToast(dt.error || 'Lỗi thao tác!', true); }
             catch(e) { showToast('Lỗi HTTP: ' + res.status, true); }
@@ -588,7 +603,10 @@ function initStaffTabs() {
         link.addEventListener('click', () => {
             const t = link.getAttribute('data-target');
             if (t === 'locations') setTimeout(initLocMap, 150);
-            if (t === 'manage') setTimeout(initServiceMap, 150);
+            if (t === 'manage') {
+                setTimeout(initServiceMap, 150);
+                fetchServices(); // Tải lại danh sách mới nhất
+            }
             if (t === 'orders') fetchOrders();
         });
     });

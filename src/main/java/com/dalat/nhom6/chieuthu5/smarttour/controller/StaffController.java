@@ -178,16 +178,12 @@ public class StaffController {
             order.setStatus("AWAITING_PAYMENT");
             orderRepository.save(order);
 
-            // Trừ số lượng phòng nếu là HOTEL
+            // BO: Khong tru phong o day vi da tru luc khach bam Dat (UserController) de giu cho.
+            // Chi can set thoi gian tra phong du kien (Optional)
             for (OrderDetail detail : order.getOrderDetails()) {
-                Service svc = detail.getService();
-                if ("HOTEL".equals(svc.getServiceType()) && svc.getAvailableRooms() != null) {
-                    int remaining = svc.getAvailableRooms() - detail.getQuantity();
-                    svc.setAvailableRooms(Math.max(0, remaining));
-                    
+                if ("HOTEL".equals(detail.getService().getServiceType())) {
                     int days = detail.getBookingDays() != null ? detail.getBookingDays() : 1;
                     detail.setReturnRoomAt(java.time.LocalDateTime.now().plusDays(days));
-                    serviceRepository.save(svc);
                 }
             }
 
@@ -307,6 +303,20 @@ public class StaffController {
             notificationRepository.save(notif);
 
             try {
+                // ==== HOÀN LẠI PHÒNG/CHUYẾN ĐI KHI HỦY ĐƠN ====
+                for (OrderDetail detail : order.getOrderDetails()) {
+                    Service svc = detail.getService();
+                    if ("HOTEL".equals(svc.getServiceType())) {
+                        int current = svc.getAvailableRooms() != null ? svc.getAvailableRooms() : 0;
+                        svc.setAvailableRooms(current + detail.getQuantity());
+                        serviceRepository.save(svc);
+                    } else if ("TOUR".equals(svc.getServiceType())) {
+                        int currentTrips = svc.getAvailableTrips() != null ? svc.getAvailableTrips() : 0;
+                        svc.setAvailableTrips(currentTrips + 1);
+                        serviceRepository.save(svc);
+                    }
+                }
+                
                 messagingTemplate.convertAndSend("/topic/user/notifications/" + customer.getUsername(),
                     "Đơn đặt #" + order.getId() + " đã bị đại lý hủy!");
             } catch (Exception ignored) {}
@@ -317,7 +327,7 @@ public class StaffController {
             // Xóa Order (sẽ cascade xóa luôn OrderDetail do CascadeType.ALL)
             orderRepository.deleteById(orderId);
 
-            return ResponseEntity.ok(Map.of("message", "Đã hủy đơn hàng thành công!"));
+            return ResponseEntity.ok(Map.of("message", "Đã hủy đơn hàng & hoàn trả lại slot trống thành công!"));
         }
 
         return ResponseEntity.badRequest().body(Map.of("error", "Không thể thực hiện thao tác này!"));

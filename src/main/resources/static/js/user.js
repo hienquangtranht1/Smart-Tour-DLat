@@ -318,16 +318,16 @@ function renderServicesGrid(data) {
 async function fetchMyOrders() {
     console.log("fetchMyOrders invoked...");
     const list = document.getElementById('myOrdersList');
-    if (!list) {
-        console.error("Critical: myOrdersList element not found in DOM!");
-        return;
-    }
-    list.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#64748b"><i class="fas fa-spinner fa-spin"></i> Đang tải đơn hàng...</td></tr>';
+    if (!list) return;
+    
+    // Đổi chữ loading để dễ nhận dạng file đã được cập nhật chưa
+    list.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#64748b"><i class="fas fa-spinner fa-spin"></i> Đang lấy dữ liệu đơn hàng từ máy chủ...</td></tr>';
+    
     try {
         const res = await fetch('/api/user/orders');
         console.log("Fetch user orders status:", res.status);
         if (!res.ok) { 
-            list.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#f43f5e"><i class="fas fa-exclamation-circle"></i> Không tải được đơn hàng!</td></tr>'; 
+            list.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:2rem;color:#f43f5e"><i class="fas fa-exclamation-circle"></i> Máy chủ báo lỗi ${res.status}! Vui lòng thử lại.</td></tr>`; 
             return; 
         }
         const orders = await res.json();
@@ -335,7 +335,7 @@ async function fetchMyOrders() {
         renderMyOrders(orders);
     } catch (e) {
         console.error("fetchMyOrders error:", e);
-        list.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#f43f5e"><i class="fas fa-wifi-slash"></i> Lỗi kết nối máy chủ!</td></tr>';
+        list.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:2rem;color:#f43f5e"><i class="fas fa-wifi-slash"></i> Không kết nối được Backend! Mở F12 xem chi tiết.</td></tr>';
     }
 }
 
@@ -343,7 +343,6 @@ function renderMyOrders(orders) {
     const list = document.getElementById('myOrdersList');
     const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
 
-    // Cập nhật stat cards
     const total = orders.length;
     const paid = orders.filter(o => ['PAID','IN_PROGRESS','COMPLETED'].includes(o.status)).length;
     const pending = orders.filter(o => ['PENDING','AWAITING_PAYMENT'].includes(o.status)).length;
@@ -354,8 +353,14 @@ function renderMyOrders(orders) {
     if (statPaid) statPaid.textContent = `${paid} đơn`;
     if (statPend) statPend.textContent = `${pending} đơn`;
 
+    // FIX CHÍNH: Render bảng rỗng đúng chuẩn HTML
     if (orders.length === 0) {
-        list.innerHTML = '<div style="text-align:center;padding:3rem;color:#94a3b8"><i class="fas fa-shopping-bag" style="font-size:3rem;display:block;margin-bottom:1rem;opacity:.4"></i>Bạn chưa có đơn hàng nào. Hãy khám phá dịch vụ!</div>';
+        list.innerHTML = `<tr><td colspan="5">
+            <div style="text-align:center;padding:3rem;color:#94a3b8">
+                <i class="fas fa-shopping-bag" style="font-size:3rem;display:block;margin-bottom:1rem;opacity:.4"></i>
+                Bạn chưa có đơn hàng nào. Hãy khám phá dịch vụ!
+            </div>
+        </td></tr>`;
         return;
     }
 
@@ -373,10 +378,9 @@ function renderMyOrders(orders) {
         const badge = `<span style="background:${st.bg};color:${st.color};font-size:.7rem;font-weight:700;padding:4px 10px;border-radius:20px;display:inline-block">${st.label}</span>`;
         const oEncoded = encodeURIComponent(JSON.stringify(o));
         
-        // Nút Thao tác
         const btnDetail = `<button class="btn btn-primary btn-xs" onclick="showUserOrderDetail('${oEncoded}')" style="background:#6366f1;border:none;padding:4px 8px;font-size:0.7rem"><i class="fas fa-eye"></i> Chi tiết</button>`;
         const btnPay = o.status === 'AWAITING_PAYMENT' 
-            ? `<button class="btn btn-success btn-xs" onclick="payVnpay(${o.id})" style="background:#10b981;border:none;padding:4px 8px;font-size:0.7rem;margin-left:4px"><i class="fas fa-credit-card"></i> Pay</button>` 
+            ? `<button class="btn btn-success btn-xs" onclick="payVnpay(${o.id}, ${o.totalAmount})" style="background:#10b981;border:none;padding:4px 8px;font-size:0.7rem;margin-left:4px"><i class="fas fa-credit-card"></i> Pay</button>` 
             : '';
 
         return `
@@ -447,14 +451,26 @@ function showUserOrderDetail(encodedData) {
         </div>
         <div style="margin-top:2rem;display:flex;gap:.8rem">
             <button onclick="document.getElementById('_userOrderDetailModal').remove()" style="flex:1;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;font-weight:700;color:#64748b">Quay lại</button>
-            ${o.status === 'AWAITING_PAYMENT' ? `<button onclick="payVnpay(${o.id})" style="flex:1.5;padding:10px;border:none;border-radius:10px;background:#6366f1;color:#fff;cursor:pointer;font-weight:700"><i class="fas fa-credit-card"></i> Thanh toán ngay</button>` : ''}
+            ${o.status === 'AWAITING_PAYMENT' ? `<button onclick="payVnpay(${o.id}, ${o.totalAmount})" style="flex:1.5;padding:10px;border:none;border-radius:10px;background:#6366f1;color:#fff;cursor:pointer;font-weight:700"><i class="fas fa-credit-card"></i> Thanh toán ngay</button>` : ''}
         </div>
     </div>`;
     document.body.appendChild(modal);
 }
 
-function payVnpay(orderId) {
-    window.location.href = `/api/payment/vnpay?orderId=${orderId}`;
+async function payVnpay(orderId, amount) {
+    try {
+        showToast('Đang kết nối cổng VNPAY an toàn...');
+        const res = await fetch(`/api/payment/create-payment?orderId=${orderId}&amount=${amount}`, { method: 'POST' });
+        const data = await res.json();
+        if (data.paymentUrl) {
+            window.location.href = data.paymentUrl;
+        } else {
+            showToast("Lỗi khởi tạo thanh toán VNPAY!", true);
+        }
+    } catch (e) {
+        console.error("VNPAY error:", e);
+        showToast("Không thể kết nối dịch vụ thanh toán!", true);
+    }
 }
 
 async function bookService(id, btn) {
@@ -867,11 +883,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     const activeTab = document.querySelector('.nav-link.active');
     if (activeTab) {
         const target = activeTab.getAttribute('data-target');
-        console.log("Initial active tab:", target);
         if (target === 'booking') fetchServices();
-        if (target === 'billing') fetchMyOrders();
         if (target === 'ai-itinerary') { /* AI tab content is static until generate */ }
     }
+    // Luôn tải đơn hàng ngay khi vào trang (không chờ click tab)
+    fetchMyOrders();
 
     // 4. Các khởi tạo khác
     if (typeof initServiceForm === 'function') initServiceForm();
