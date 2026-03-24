@@ -472,5 +472,42 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchConfigs();
     if(document.getElementById('usersList')) fetchUsers();
     loadUnreadNotifications();
+    loadAdminChart(); // Tự động load biểu đồ khi mở trang
     setInterval(loadUnreadNotifications, 30000); // tự refresh badge mỗi 30 giây
 });
+
+let adminChartInstance = null;
+
+async function loadAdminChart() {
+    try {
+        const res = await fetch('/api/admin/chart-data');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const ctx = document.getElementById('adminRevenueChart');
+        if (!ctx) return;
+
+        // Xóa biểu đồ cũ nếu đã vẽ để tránh bị đè lỗi
+        if (adminChartInstance) adminChartInstance.destroy();
+
+        adminChartInstance = new Chart(ctx, {
+            type: 'line', // Biểu đồ đường
+            data: {
+                labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'],
+                datasets: [{
+                    label: 'Tổng Doanh Thu (VNĐ)',
+                    data: data.monthlyRevenue,
+                    borderColor: '#4f46e5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                    borderWidth: 3,
+                    tension: 0.3, // Làm cong đường nối
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } catch (e) { console.error("Lỗi vẽ biểu đồ Admin:", e); }
+}

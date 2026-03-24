@@ -482,7 +482,7 @@ async function bookService(id, btn) {
     const bookingResult = await showBookingModal(s);
     if (!bookingResult) return; // user bấm hủy
 
-    const { quantity, bookingDays, bookingDate, bookingTime } = bookingResult;
+    const { quantity, bookingDays, bookingDate, bookingTime, numberOfPeople } = bookingResult;
 
     const orig = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -490,6 +490,7 @@ async function bookService(id, btn) {
     try {
         let url = `/api/user/book/${id}?quantity=${quantity}&bookingDays=${bookingDays}&bookingDate=${bookingDate}`;
         if (bookingTime) url += `&bookingTime=${bookingTime}`;
+        if (numberOfPeople) url += `&numberOfPeople=${numberOfPeople}`;
         const res = await fetch(url, { method: 'POST' });
         const json = await res.json();
         if (res.ok) {
@@ -529,7 +530,16 @@ function showBookingModal(s) {
                     style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:.95rem;outline:none"
                     value="${s.openingTime || '08:00'}" required>
             </div>` : '';
-        const quantityLabel = isHotel ? `Số phòng (còn ${s.availableRooms || 0} phòng)` : (isTour ? `Số người (tối đa ${s.maxPeople || '?'})` : 'Số lượng');
+        const quantityLabel = isHotel ? `Số phòng (còn ${s.availableRooms || 0} phòng)` : (isTour ? `Số lượng vé (tối đa ${s.maxPeople || '?'})` : 'Số lượng');
+        
+        // Ô nhập số người đi (Chỉ hiện cho Khách sạn / Ăn uống)
+        const peopleHtml = !isTour ? `
+            <div style="margin-top:1rem">
+                <label style="font-size:.85rem;font-weight:600;color:#374151;display:block;margin-bottom:.4rem"><i class="fas fa-users"></i> Số người đi (Sức chứa tối đa: ${s.maxPeople || '?'}/đơn vị)</label>
+                <input type="number" id="bookPeople" min="1" value="1"
+                    style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:.95rem">
+            </div>` : '';
+
         const daysHtml = isHotel ? `
             <div style="margin-top:1rem">
                 <label style="font-size:.85rem;font-weight:600;color:#374151;display:block;margin-bottom:.4rem"><i class="fas fa-moon"></i> Số đêm thuê</label>
@@ -558,6 +568,7 @@ function showBookingModal(s) {
                     <input type="number" id="bookQty" min="1" value="1"
                         style="width:100%;padding:.55rem .75rem;border:1.5px solid #d1d5db;border-radius:8px;font-size:.95rem">
                 </div>
+                ${peopleHtml}
                 ${daysHtml}
 
                 <div id="endDateInfo" style="display:none;margin-top:.75rem;padding:.6rem .85rem;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;font-size:.82rem;color:#166534">
@@ -593,9 +604,10 @@ function showBookingModal(s) {
             const bookingTime = hasTime ? document.getElementById('bookTime').value : null;
             if (hasTime && !bookingTime) { alert('Vui lòng chọn giờ đến!'); return; }
             const quantity = parseInt(document.getElementById('bookQty').value) || 1;
+            const numberOfPeople = !isTour ? (parseInt(document.getElementById('bookPeople').value) || 1) : quantity;
             const bookingDays = isHotel ? (parseInt(document.getElementById('bookDays').value) || 1) : 1;
             modal.remove();
-            resolve({ quantity, bookingDays, bookingDate, bookingTime });
+            resolve({ quantity, bookingDays, bookingDate, bookingTime, numberOfPeople });
         };
     });
 }

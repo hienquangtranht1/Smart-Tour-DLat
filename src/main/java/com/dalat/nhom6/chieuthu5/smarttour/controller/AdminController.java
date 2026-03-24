@@ -324,4 +324,25 @@ public class AdminController {
             return ResponseEntity.status(500).body(Map.of("error", "Lỗi DB: Không thể xoá User do dính khóa ngoại"));
         }
     }
+
+    @GetMapping("/chart-data")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getAdminChartData() {
+        List<Order> allOrders = orderRepository.findAll();
+        BigDecimal[] monthlyRevenue = new BigDecimal[12];
+        java.util.Arrays.fill(monthlyRevenue, BigDecimal.ZERO);
+
+        int currentYear = java.time.LocalDate.now().getYear();
+
+        for (Order o : allOrders) {
+            // Chỉ tính các đơn đã thanh toán thành công
+            if ("PAID".equals(o.getStatus()) || "IN_PROGRESS".equals(o.getStatus()) || "COMPLETED".equals(o.getStatus())) {
+                if (o.getOrderDate() != null && o.getOrderDate().getYear() == currentYear) {
+                    int monthIndex = o.getOrderDate().getMonthValue() - 1; // Index từ 0 - 11
+                    monthlyRevenue[monthIndex] = monthlyRevenue[monthIndex].add(o.getTotalAmount());
+                }
+            }
+        }
+        return ResponseEntity.ok(Map.of("monthlyRevenue", monthlyRevenue));
+    }
 }

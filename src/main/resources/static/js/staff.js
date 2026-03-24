@@ -166,8 +166,16 @@ async function fetchOrders() {
                 statusBadge = '<span class="badge" style="background:rgba(16,185,129,.15);color:#10b981;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem">✔ ĐÃ THANH TOÁN</span>';
                 actionBtn = `<button class="btn btn-primary btn-xs" onclick="startTrip(${o.id})"><i class="fas fa-play"></i> Bắt đầu chuyến</button>`;
             } else if (o.status === 'IN_PROGRESS') {
-                statusBadge = '<span class="badge" style="background:rgba(139,92,246,.15);color:#8b5cf6;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem"><i class="fas fa-route"></i> ĐANG TIẾN HÀNH</span>';
-                actionBtn = `<button class="btn btn-success btn-xs" onclick="completeTrip(${o.id})"><i class="fas fa-flag-checkered"></i> Hoàn thành chuyến</button>`;
+                // Nếu là Khách Sạn: Chặn tương tác, để hệ thống tự xử lý
+                if (o.serviceType === 'HOTEL') {
+                    statusBadge = '<span class="badge" style="background:rgba(139,92,246,.15);color:#8b5cf6;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem"><i class="fas fa-bed"></i> ĐANG SỬ DỤNG</span>';
+                    actionBtn = '<span class="text-muted" style="font-size:0.75rem; font-weight: bold;"><i class="fas fa-robot"></i> Hệ thống tự kết thúc</span>';
+                } 
+                // Các dịch vụ khác (Tour...): Staff vẫn tự bấm tay như bình thường
+                else {
+                    statusBadge = '<span class="badge" style="background:rgba(139,92,246,.15);color:#8b5cf6;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem"><i class="fas fa-route"></i> ĐANG TIẾN HÀNH</span>';
+                    actionBtn = `<button class="btn btn-success btn-xs" onclick="completeTrip(${o.id})"><i class="fas fa-flag-checkered"></i> Hoàn thành chuyến</button>`;
+                }
             } else if (o.status === 'COMPLETED') {
                 statusBadge = '<span class="badge" style="background:rgba(100,116,139,.15);color:#64748b;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem">✅ ĐÃ KẾT THÚC</span>';
                 actionBtn = '<span class="text-muted" style="font-size:0.75rem">Không thao tác</span>';
@@ -325,9 +333,9 @@ function initServiceForm() {
         fd.append('type',        document.getElementById('svcType').value);
         fd.append('price',       document.getElementById('svcPrice').value);
         fd.append('description', document.getElementById('svcDesc').value);
+        fd.append('maxPeople',   document.getElementById('svcMaxPeople').value || '1');
         
         if (document.getElementById('svcType').value === 'TOUR') {
-            fd.append('maxPeople', document.getElementById('svcMaxPeople').value);
             fd.append('durationDays', document.getElementById('svcDuration').value);
             fd.append('transportation', document.getElementById('svcTransport').value);
             if(document.getElementById('svcAvailableTrips')) fd.append('availableTrips', document.getElementById('svcAvailableTrips').value);
@@ -377,8 +385,8 @@ function editService(svcStr) {
     const ev = new Event('change');
     document.getElementById('svcType').dispatchEvent(ev);
 
+    document.getElementById('svcMaxPeople').value = svc.maxPeople || '';
     if ((svc.serviceType || svc.type) === 'TOUR') {
-        document.getElementById('svcMaxPeople').value = svc.maxPeople || '';
         document.getElementById('svcDuration').value = svc.durationDays || '';
         document.getElementById('svcTransport').value = svc.transportation || '';
     } else {
@@ -637,7 +645,40 @@ async function fetchRevenue() {
                 <td style="font-size:.8rem;color:var(--text-muted)">${r.createdAt.replace('T',' ').substring(0,16)}</td>
             </tr>
         `).join('');
+        loadStaffChart(); // Thêm dòng này vào cuối cùng của khối try {...}
     } catch (e) { showToast('Lỗi kết nối: ' + e.message, true); }
+}
+
+let staffChartInstance = null;
+
+async function loadStaffChart() {
+    try {
+        const res = await fetch('/api/staff/chart-data');
+        if (!res.ok) return;
+        const data = await res.json();
+        
+        const ctx = document.getElementById('staffRevenueChart');
+        if (!ctx) return;
+
+        if (staffChartInstance) staffChartInstance.destroy();
+
+        staffChartInstance = new Chart(ctx, {
+            type: 'bar', // Biểu đồ cột cho Staff
+            data: {
+                labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
+                datasets: [{
+                    label: 'Doanh Thu Đại Lý (VNĐ)',
+                    data: data.monthlyRevenue,
+                    backgroundColor: '#10b981', // Màu xanh ngọc
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    } catch (e) { console.error("Lỗi vẽ biểu đồ Staff:", e); }
 }
 
 // ── 10. TYPE CHANGE (Hotel vs Tour) ────────────────────────
@@ -663,6 +704,13 @@ function initTypeChange() {
         if (hint) hint.innerText = isTour
             ? '(Chạm 1–5 điểm liên tiếp để vẽ Lộ trình Tour)'
             : '(Chạm 1 điểm để ghim toạ độ)';
+            
+        // Cập nhật nhãn label cho Sức chứa dựa trên loại hình
+        const labelMax = document.querySelector('label[for=svcMaxPeople]') || document.getElementById('labelMaxPeople');
+        if (labelMax) {
+            labelMax.innerText = isTour ? "Số người tối đa / Chuyến" : 
+                                 isHotel ? "Sức chứa tối đa (người/phòng)" : "Sức chứa tối đa (người/đơn vị)";
+        }
     });
 }
 

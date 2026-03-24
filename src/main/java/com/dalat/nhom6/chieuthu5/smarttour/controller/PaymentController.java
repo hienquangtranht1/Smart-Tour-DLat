@@ -224,8 +224,17 @@ public class PaymentController {
                     Integer orderId = Integer.parseInt(parts[parts.length - 1]);
                     Order order = orderRepository.findById(orderId).orElse(null);
 
-                    if (order != null && !"PAID".equals(order.getStatus())) {
-                        order.setStatus("PAID");
+                    if (order != null && !"PAID".equals(order.getStatus()) && !"IN_PROGRESS".equals(order.getStatus())) {
+                        // Kiểm tra xem đơn hàng này có phải là khách sạn (HOTEL) không
+                        boolean isHotel = order.getOrderDetails().stream()
+                                .anyMatch(d -> d.getService() != null && "HOTEL".equals(d.getService().getServiceType()));
+
+                        // Nếu là HOTEL -> tự động nhảy sang Đang tiến hành. Các dịch vụ khác vẫn là Đã thanh toán (PAID)
+                        if (isHotel) {
+                            order.setStatus("IN_PROGRESS");
+                        } else {
+                            order.setStatus("PAID");
+                        }
                         orderRepository.save(order);
 
                         // Ghi nhận hoa hồng 5%

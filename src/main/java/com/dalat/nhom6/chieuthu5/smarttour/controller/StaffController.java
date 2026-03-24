@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -44,6 +45,14 @@ public class StaffController {
 
     @Autowired
     private CommissionRepository commissionRepository;
+
+    private User getUserFromSession(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) return null;
+        Integer userId = (Integer) session.getAttribute("USER_ID");
+        if (userId == null) return null;
+        return userRepository.findById(userId).orElse(null);
+    }
 
     private Agency getAgencyFromSession(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
@@ -155,13 +164,16 @@ public class StaffController {
                     map.put("bookingDays", d.getBookingDays() != null ? d.getBookingDays() : 1);
                     map.put("quantity", d.getQuantity() != null ? d.getQuantity() : 1);
                     
-                    // Tính ngày kết thúc cho TOUR
-                    if (d.getApplyDate() != null && "TOUR".equals(d.getService().getServiceType()) 
-                            && d.getService().getDurationDays() != null) {
-                        map.put("endDate", d.getApplyDate().plusDays(d.getService().getDurationDays()).toString());
-                    } else {
-                        map.put("endDate", "");
+                    // SỬA LẠI ĐOẠN NÀY ĐỂ TÍNH NGÀY KẾT THÚC CHO CẢ TOUR VÀ KHÁCH SẠN
+                    String endDate = "";
+                    if (d.getApplyDate() != null) {
+                        if ("TOUR".equals(d.getService().getServiceType()) && d.getService().getDurationDays() != null) {
+                            endDate = d.getApplyDate().plusDays(d.getService().getDurationDays()).toString();
+                        } else if ("HOTEL".equals(d.getService().getServiceType()) && d.getBookingDays() != null) {
+                            endDate = d.getApplyDate().plusDays(d.getBookingDays()).toString();
+                        }
                     }
+                    map.put("endDate", endDate);
                 }
                 return map;
             }).collect(Collectors.toList());
@@ -548,5 +560,35 @@ public class StaffController {
         return ResponseEntity.status(500).body(Map.of(
             "error", "Chi tiết lỗi DB: " + ex.getClass().getSimpleName() + " - " + ex.getMessage()
         ));
+    }
+
+    @GetMapping("/chart-data")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getStaffChartData(HttpServletRequest request) {
+        User user = getUserFromSession(request);
+        if (user == null) return ResponseEntity.status(401).build();
+
+        Agency agency = agencyRepository.findByUserId(user.getId()).orElse(null);
+        if (agency == null) return ResponseEntity.badRequest().build();
+
+        // Lọc ra các đơn hàng thuộc về Đại lý này
+        List<Order> agencyOrders = orderRepository.findAll().stream()
+                .filter(o -> o.getOrderDetails() != null && !o.getOrderDetails().isEmpty() &&
+                             o.getOrderDetails().get(0).getService().getAgency().getId().equals(agency.getId()))
+                .toList();
+
+        BigDecimal[] monthlyRevenue = new BigDecimal[12];
+        java.util.Arrays.fill(monthlyRevenue, BigDecimal.ZERO);
+        int currentYear = LocalDate.now().getYear();
+
+        for (Order o : agencyOrders) {
+            if ("PAID".equals(o.getStatus()) || "IN_PROGRESS".equals(o.getStatus()) || "COMPLETED".equals(o.getStatus())) {
+                if (o.getOrderDate() != null && o.getOrderDate().getYear() == currentYear) {
+                    int monthIndex = o.getOrderDate().getMonthValue() - 1;
+                    monthlyRevenue[monthIndex] = monthlyRevenue[monthIndex].add(o.getTotalAmount());
+                }
+            }
+        }
+        return ResponseEntity.ok(Map.of("monthlyRevenue", monthlyRevenue));
     }
 }

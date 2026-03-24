@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
@@ -91,7 +92,8 @@ public class UserController {
     @Transactional
     public ResponseEntity<?> bookSingleService(
             @PathVariable("serviceId") Integer serviceId,
-            @RequestParam(value = "quantity", defaultValue = "1") Integer quantity,
+            @RequestParam(value = "quantity", defaultValue = "1") Integer quantity, // Đây là số Phòng (Hotel), Bàn (Ăn uống) hoặc Vé (Tour)
+            @RequestParam(value = "numberOfPeople", required = false) Integer numberOfPeople, // THÊM MỚI: Số người đi
             @RequestParam(value = "bookingDays", defaultValue = "1") Integer bookingDays,
             @RequestParam(value = "bookingDate", required = false) String bookingDateStr,
             @RequestParam(value = "bookingTime", required = false) String bookingTimeStr,
@@ -142,8 +144,10 @@ public class UserController {
             }
         }
 
+        // --- 1. KIỂM TRA GIỚI HẠN SỨC CHỨA VÀ TÌNH TRẠNG KHO ---
+        int maxP = svc.getMaxPeople() != null ? svc.getMaxPeople() : 1;
+
         if ("TOUR".equals(svc.getServiceType())) {
-            int maxP = svc.getMaxPeople() != null ? svc.getMaxPeople() : 1;
             if (quantity > maxP) {
                 return ResponseEntity.badRequest().body(Map.of("error", "Số khách vượt quá quy định (Tối đa " + maxP + " người)"));
             }
@@ -153,32 +157,49 @@ public class UserController {
             }
             svc.setAvailableTrips(availableTrips - 1);
             serviceRepository.save(svc);
-        } else if ("HOTEL".equals(svc.getServiceType())) {
-            int available = svc.getAvailableRooms() != null ? svc.getAvailableRooms() : 0;
-            if (quantity > available) {
-                return ResponseEntity.badRequest().body(Map.of("error", "Không đủ số lượng phòng trống. Hiện còn: " + available));
+        } else {
+            // KHÁCH SẠN HOẶC ĂN UỐNG
+            // Kiểm tra số người nhập vào (Nếu UI có truyền) có vượt sức chứa không?
+            if (numberOfPeople != null) {
+                int maxCapacity = maxP * quantity; // Sức chứa tối đa = số phòng * sức chứa 1 phòng
+                if (numberOfPeople > maxCapacity) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Vượt quá sức chứa! Giới hạn chỉ được " + maxP + " người / 1 Đơn vị đặt."));
+                }
             }
-            svc.setAvailableRooms(available - quantity);
-            serviceRepository.save(svc);
+
+            if ("HOTEL".equals(svc.getServiceType())) {
+                int available = svc.getAvailableRooms() != null ? svc.getAvailableRooms() : 0;
+                if (quantity > available) {
+                    return ResponseEntity.badRequest().body(Map.of("error", "Không đủ số lượng phòng trống. Hiện còn: " + available));
+                }
+                svc.setAvailableRooms(available - quantity);
+                serviceRepository.save(svc);
+            }
         }
 
+        // --- 2. TÍNH TIỀN CHUẨN (KHÔNG NHÂN THEO ĐẦU NGƯỜI CHO KHÁCH SẠN/ĂN UỐNG) ---
         BigDecimal unitPrice = svc.getSalePrice();
-        BigDecimal amount = unitPrice; 
+        // Cơ bản: Giá = Đơn Giá * Số lượng (Phòng, Bàn, hoặc Vé)
+        BigDecimal amount = unitPrice.multiply(BigDecimal.valueOf(quantity)); 
+        
         if ("HOTEL".equals(svc.getServiceType())) {
+            // Khách sạn tính thêm theo số đêm (bookingDays)
             amount = amount.multiply(BigDecimal.valueOf(bookingDays)); 
         }
+        // => LƯU Ý: Ở trên `amount` TUYỆT ĐỐI KHÔNG bị nhân với `numberOfPeople`. Số tiền sẽ đóng băng theo phòng/đêm!
 
         Order order = Order.builder()
                 .user(user)
                 .totalAmount(amount)
                 .status("PENDING")
+                .orderDate(LocalDateTime.now())
                 .build();
         
         OrderDetail detail = OrderDetail.builder()
                 .order(order)
                 .service(svc)
-                .quantity(quantity)
-                .bookingDays(bookingDays)
+                .quantity(quantity) 
+                .bookingDays(bookingDays) 
                 .actualPrice(unitPrice)
                 .isRoomReturned(false)
                 .applyDate(bookingDate)
@@ -186,13 +207,12 @@ public class UserController {
                 .build();
                 
         order.setOrderDetails(List.of(detail));
-        
         orderRepository.save(order);
 
         User staffUser = svc.getAgency().getUser();
         Notification n = Notification.builder()
                 .user(staffUser)
-                .message("Có khách hàng (" + user.getUsername() + ") vừa đặt dịch vụ: " + svc.getServiceName())
+                .message("Có khách hàng (" + user.getUsername() + ") vừa đặt: " + svc.getServiceName())
                 .type("ORDER_PENDING")
                 .isRead(false)
                 .build();
@@ -241,9 +261,14 @@ public class UserController {
                     if (d0.getApplyDate() != null) bookingDateDisplay = d0.getApplyDate().toString();
                     if (d0.getBookingTime() != null) bookingTimeDisplay = d0.getBookingTime().toString();
                     
-                    if (d0.getApplyDate() != null && "TOUR".equals(d0.getService().getServiceType())
-                            && d0.getService().getDurationDays() != null) {
-                        endDateDisplay = d0.getApplyDate().plusDays(d0.getService().getDurationDays()).toString();
+                    // SỬA LẠI ĐOẠN NÀY ĐỂ TÍNH NGÀY KẾT THÚC CHO CẢ TOUR VÀ KHÁCH SẠN
+                    if (d0.getApplyDate() != null) {
+                        if ("TOUR".equals(d0.getService().getServiceType()) && d0.getService().getDurationDays() != null) {
+                            endDateDisplay = d0.getApplyDate().plusDays(d0.getService().getDurationDays()).toString();
+                        } else if ("HOTEL".equals(d0.getService().getServiceType()) && d0.getBookingDays() != null) {
+                            // Khách sạn: Ngày kết thúc = Ngày applyDate (đến) + Số đêm (bookingDays)
+                            endDateDisplay = d0.getApplyDate().plusDays(d0.getBookingDays()).toString();
+                        }
                     }
                     bookingDays = d0.getBookingDays() != null ? d0.getBookingDays() : 1;
                     serviceType = d0.getService().getServiceType();
