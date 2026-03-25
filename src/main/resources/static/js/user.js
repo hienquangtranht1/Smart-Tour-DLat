@@ -292,17 +292,20 @@ function renderServicesGrid(data) {
         const tagColor = s.type === 'HOTEL'
             ? 'background:rgba(52,211,153,.2);color:#34d399;'
             : 'background:rgba(129,140,248,.2);color:#818cf8;';
+        const imgHtml = s.imageUrl
+            ? `<img src="${s.imageUrl}" class="service-img" onerror="this.onerror=null;this.parentElement.querySelector('.service-img').replaceWith(Object.assign(document.createElement('div'),{className:'service-img',style:'display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(52,211,153,.1));border-radius:12px 12px 0 0',innerHTML:'<i class=\\'fas fa-image\\' style=\\'font-size:3rem;color:rgba(129,140,248,.5)\\'></i>'}))" alt="${s.name}">`
+            : `<div class="service-img" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(52,211,153,.1));border-radius:12px 12px 0 0"><i class="fas fa-image" style="font-size:3rem;color:rgba(129,140,248,.5)"></i></div>`;
         grid.innerHTML += `
         <div class="service-card glass-panel" style="position:relative">
             ${distanceHtml}
-            <img src="${s.imageUrl}" class="service-img" onerror="this.src='https://images.unsplash.com/photo-1559599525-47d0af8071e6?w=400'" alt="${s.name}">
+            ${imgHtml}
             <div class="service-info">
                 <div class="service-header">
                     <h3>${s.name}</h3>
                     <span class="type-badge" style="${tagColor}">${s.type}</span>
                 </div>
                 <p class="service-agency"><i class="fas fa-store"></i> ${s.agencyName}</p>
-                <p class="service-desc">${s.description.substring(0,60)}...</p>
+                <p class="service-desc">${s.description.substring(0,80)}...</p>
                 <div class="service-footer">
                     <span class="price-tag">${price}</span>
                     <button class="btn btn-primary btn-sm" onclick="showServiceDetail(${s.id})">
@@ -655,7 +658,7 @@ function showServiceDetail(id) {
 
     document.getElementById('service-modal-content').innerHTML = `
         <div style="display:flex;gap:1.5rem;align-items:flex-start">
-            <img src="${s.imageUrl}" style="width:300px;height:220px;border-radius:16px;object-fit:cover" onerror="this.src='https://via.placeholder.com/400x300'">
+            <img src="${s.imageUrl}" style="width:300px;height:220px;border-radius:16px;object-fit:cover" onerror="this.src='https://picsum.photos/seed/${s.id}/400/300'">
             <div style="flex:1">
                 <h2 style="margin-bottom:.5rem;color:#818cf8">${s.name}</h2>
                 <span class="type-badge" style="background:rgba(129,140,248,.2);color:#818cf8">${s.type}</span>
@@ -860,7 +863,7 @@ function initExplorerMap(data) {
 
         const html = `
             <div style="font-family:'Inter',sans-serif;width:200px">
-                <img src="${s.imageUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:8px" onerror="this.src='https://via.placeholder.com/200x100'">
+                <img src="${s.imageUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:8px" onerror="this.src='https://picsum.photos/seed/${s.id}/200/100'">
                 <h4 style="margin:0;font-size:14px;color:#1e293b">${s.name}</h4>
                 <div style="font-size:12px;color:#64748b;margin:4px 0">${s.type} • ${s.agencyName}</div>
                 <div style="font-size:14px;font-weight:bold;color:#f43f5e;margin-bottom:8px">${priceStr}</div>

@@ -13,7 +13,6 @@
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         /* ── Table ── */
         .table-wrap {
@@ -321,7 +320,9 @@
                     style="background: #fff; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 2rem;">
                     <h3 style="color: #1e293b; margin-bottom: 1rem;"><i class="fas fa-chart-line"></i> Biểu Đồ Doanh Thu
                         Hệ Thống (Năm Nay)</h3>
-                    <canvas id="adminRevenueChart" height="100"></canvas>
+                    <div style="position: relative; height: 350px; width: 100%;">
+                        <canvas id="adminRevenueChart"></canvas>
+                    </div>
                 </div>
 
                 <div class="dash-grid">
@@ -507,6 +508,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/main.js"></script>
     <script src="js/admin.js"></script>
 </body>

@@ -100,7 +100,7 @@ async function fetchServices(isPreview = false) {
                    </div>`;
             tbody.innerHTML += `
             <tr>
-                <td><img src="${s.imageUrl}" class="thumb-img" onerror="this.src='https://via.placeholder.com/60'" alt="${s.name}"></td>
+                <td><img src="${s.imageUrl}" class="thumb-img" onerror="this.src='https://picsum.photos/seed/${s.id}/60/60'" alt="${s.name}"></td>
                 <td><b>${s.name}</b></td>
                 <td><span class="badge badge-info">${s.type}</span></td>
                 <td><i class="fas fa-store text-muted"></i> ${s.agencyName}</td>
@@ -146,7 +146,7 @@ function showServiceDetail(id) {
 
     document.getElementById('modal-content').innerHTML = `
         <h3 style="font-size:1.2rem;margin-bottom:1rem;color:#818cf8"><i class="fas fa-box"></i> ${s.name}</h3>
-        <img src="${s.imageUrl}" style="width:100%;height:200px;object-fit:cover;border-radius:12px;margin-bottom:1rem;" onerror="this.src='https://via.placeholder.com/400x200'"/>
+        <img src="${s.imageUrl}" style="width:100%;height:200px;object-fit:cover;border-radius:12px;margin-bottom:1rem;" onerror="this.src='https://picsum.photos/seed/${s.id}/400/200'"/>
         <div style="display:grid;gap:0.6rem;font-size:.875rem;">
             <div><span style="color:var(--text-muted)">Loại dịch vụ:</span> <b>${s.type}</b></div>
             <div><span style="color:var(--text-muted)">Đại lý:</span> <b>${s.agencyName || (s.agency?s.agency.agencyName:'')}</b></div>
@@ -353,7 +353,7 @@ async function fetchUsers() {
             <tr>
                 <td>
                     <div style="display:flex;align-items:center;gap:.75rem">
-                        <img src="${u.avatarUrl || 'https://via.placeholder.com/40'}" style="width:40px;height:40px;border-radius:50%;object-fit:cover" onerror="this.src='https://ui-avatars.com/api/?name=${u.username}'">
+                        <img src="${u.avatarUrl || 'https://ui-avatars.com/api/?name=' + u.username}" style="width:40px;height:40px;border-radius:50%;object-fit:cover" onerror="this.src='https://ui-avatars.com/api/?name=${u.username}'">
                         <div>
                             <b>${u.fullName || u.username}</b><br>
                             <span style="font-size:0.75rem;color:var(--text-muted)"><i class="fas fa-phone"></i> ${u.phone || '—'}</span>
@@ -472,9 +472,25 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchConfigs();
     if(document.getElementById('usersList')) fetchUsers();
     loadUnreadNotifications();
-    loadAdminChart(); // Tự động load biểu đồ khi mở trang
+
+    // Tự động load ngay khi mới mở trang Admin
+    setTimeout(() => loadAdminChart(), 300);
+    
+    initAdminTabs();
     setInterval(loadUnreadNotifications, 30000); // tự refresh badge mỗi 30 giây
 });
+
+function initAdminTabs() {
+    document.querySelectorAll('.nav-link[data-target]').forEach(link => {
+        link.addEventListener('click', () => {
+            const t = link.getAttribute('data-target');
+            if (t === 'dashboard') {
+                setTimeout(() => loadAdminChart(), 150); // Mở lại tab là vẽ lại cho chắc
+            }
+            // ... (Giữ nguyên các tab khác nếu có)
+        });
+    });
+}
 
 let adminChartInstance = null;
 
@@ -487,25 +503,25 @@ async function loadAdminChart() {
         const ctx = document.getElementById('adminRevenueChart');
         if (!ctx) return;
 
-        // Xóa biểu đồ cũ nếu đã vẽ để tránh bị đè lỗi
         if (adminChartInstance) adminChartInstance.destroy();
 
         adminChartInstance = new Chart(ctx, {
-            type: 'line', // Biểu đồ đường
+            type: 'line',
             data: {
                 labels: ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6', 'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'],
                 datasets: [{
-                    label: 'Tổng Doanh Thu (VNĐ)',
+                    label: 'Tổng Doanh Thu Hệ Thống (VNĐ)',
                     data: data.monthlyRevenue,
                     borderColor: '#4f46e5',
                     backgroundColor: 'rgba(79, 70, 229, 0.1)',
                     borderWidth: 3,
-                    tension: 0.3, // Làm cong đường nối
+                    tension: 0.3,
                     fill: true
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false, // QUAN TRỌNG: Chống lỗi 0px
                 scales: { y: { beginAtZero: true } }
             }
         });

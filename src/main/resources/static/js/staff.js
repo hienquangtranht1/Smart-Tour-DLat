@@ -121,7 +121,7 @@ async function fetchServices() {
             const sJson = encodeURIComponent(JSON.stringify(s));
             tbody.innerHTML += `
             <tr style="border-bottom:1px solid #e2e8f0">
-                <td style="padding:0.75rem"><img src="${s.imageUrl}" style="width:50px;height:50px;border-radius:6px;object-fit:cover" onerror="this.src='https://via.placeholder.com/60'"></td>
+                <td style="padding:0.75rem"><img src="${s.imageUrl}" style="width:50px;height:50px;border-radius:6px;object-fit:cover" onerror="this.src='https://picsum.photos/seed/${s.id}/60/60'"></td>
                 <td style="padding:0.75rem"><b>${s.serviceName || s.name}</b><br><span style="font-size:0.8rem;color:#64748b">${s.description || ''}</span></td>
                 <td style="padding:0.75rem"><span style="background:#e0e7ff;color:#4f46e5;padding:4px 8px;border-radius:6px;font-size:0.8rem;font-weight:bold">${s.serviceType || s.type}</span></td>
                 <td style="padding:0.75rem;color:#f43f5e;font-weight:bold">${price}</td>
@@ -389,6 +389,7 @@ function editService(svcStr) {
     if ((svc.serviceType || svc.type) === 'TOUR') {
         document.getElementById('svcDuration').value = svc.durationDays || '';
         document.getElementById('svcTransport').value = svc.transportation || '';
+        if(document.getElementById('svcAvailableTrips')) document.getElementById('svcAvailableTrips').value = svc.availableTrips || '';
     } else {
         document.getElementById('svcOpenTime').value = svc.openingTime || '';
         document.getElementById('svcCloseTime').value = svc.closingTime || '';
@@ -475,14 +476,17 @@ function initLocationForm() {
     if (!form) return;
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const body = new URLSearchParams({
-            name:        document.getElementById('locName').value,
-            coordinates: document.getElementById('locCoords').value
-        });
+        const fd = new FormData();
+        fd.append('name', document.getElementById('locName').value);
+        fd.append('coordinates', document.getElementById('locCoords').value);
+        const fileInput = document.getElementById('locImage');
+        if (fileInput && fileInput.files[0]) {
+            fd.append('image', fileInput.files[0]);
+        }
+        
         const res = await fetch('/api/staff/locations', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body
+            body: fd
         });
         if (res.ok) { showToast('Toạ độ mới đã được lưu vào Database!'); form.reset(); }
         else showToast('Lỗi khi lưu toạ độ!', true);
@@ -611,11 +615,12 @@ function initStaffTabs() {
         link.addEventListener('click', () => {
             const t = link.getAttribute('data-target');
             if (t === 'locations') setTimeout(initLocMap, 150);
-            if (t === 'manage') {
-                setTimeout(initServiceMap, 150);
-                fetchServices(); // Tải lại danh sách mới nhất
-            }
+            if (t === 'manage') { setTimeout(initServiceMap, 150); fetchServices(); }
             if (t === 'orders') fetchOrders();
+            if (t === 'revenue') {
+                fetchRevenue(); 
+                setTimeout(() => loadStaffChart(), 150); // Vẽ lại biểu đồ khi mở Tab
+            }
         });
     });
 }
@@ -663,18 +668,19 @@ async function loadStaffChart() {
         if (staffChartInstance) staffChartInstance.destroy();
 
         staffChartInstance = new Chart(ctx, {
-            type: 'bar', // Biểu đồ cột cho Staff
+            type: 'bar',
             data: {
                 labels: ['T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12'],
                 datasets: [{
                     label: 'Doanh Thu Đại Lý (VNĐ)',
                     data: data.monthlyRevenue,
-                    backgroundColor: '#10b981', // Màu xanh ngọc
+                    backgroundColor: '#10b981',
                     borderRadius: 6
                 }]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false, // QUAN TRỌNG: Chống lỗi 0px khi đổi Tab
                 scales: { y: { beginAtZero: true } }
             }
         });
@@ -719,6 +725,11 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchInfo();
     fetchServices();
     fetchOrders();
+    
+    // THÊM 2 DÒNG NÀY: Tự động tải số Doanh thu và vẽ Biểu đồ không cần bấm nút
+    fetchRevenue(); 
+    setTimeout(() => loadStaffChart(), 300);
+
     initServiceForm();
     initLocationForm();
     initStaffTabs();

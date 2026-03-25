@@ -70,8 +70,8 @@ public class UserController {
             map.put("description", s.getDescription() != null ? s.getDescription() : "");
             map.put("imageUrl", s.getImageUrl() != null ? s.getImageUrl() : "https://via.placeholder.com/200");
             map.put("agencyName", s.getAgency().getAgencyName());
+            map.put("maxPeople", s.getMaxPeople());
             if ("TOUR".equals(s.getServiceType())) {
-                map.put("maxPeople", s.getMaxPeople());
                 map.put("durationDays", s.getDurationDays());
                 map.put("transportation", s.getTransportation());
             } else {

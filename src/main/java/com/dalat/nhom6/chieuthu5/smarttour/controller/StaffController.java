@@ -445,6 +445,7 @@ public class StaffController {
             @RequestParam(value = "closingTime", required = false) String closingTime,
             @RequestParam(value = "mapPoints", required = false) String mapPoints,
             @RequestParam(value = "availableRooms", required = false) Integer availableRooms,
+            @RequestParam(value = "availableTrips", required = false) Integer availableTrips,
             @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image,
             HttpServletRequest request) {
             
@@ -463,6 +464,7 @@ public class StaffController {
             svc.setSalePrice(price);
             svc.setDescription(description);
             svc.setMaxPeople(maxPeople);
+            svc.setAvailableTrips(availableTrips);
             svc.setDurationDays(durationDays);
             svc.setTransportation(transportation);
             svc.setOpeningTime(openingTime);
@@ -540,14 +542,45 @@ public class StaffController {
     @PostMapping("/locations")
     public ResponseEntity<?> createLocation(
             @RequestParam("name") String name,
-            @RequestParam("coordinates") String coordinates) {
+            @RequestParam("coordinates") String coordinates,
+            @RequestParam(value = "image", required = false) org.springframework.web.multipart.MultipartFile image) {
             
+        String imageUrl = null;
+        if (image != null && !image.isEmpty()) {
+            try {
+                String uploadDir = "uploads/";
+                java.nio.file.Path uploadPath = java.nio.file.Paths.get(uploadDir);
+                if (!java.nio.file.Files.exists(uploadPath)) {
+                    java.nio.file.Files.createDirectories(uploadPath);
+                }
+                String originalName = image.getOriginalFilename();
+                String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf(".")) : ".jpg";
+                String newFileName = "loc_" + System.currentTimeMillis() + ext;
+                java.nio.file.Path filePath = uploadPath.resolve(newFileName);
+                java.nio.file.Files.copy(image.getInputStream(), filePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                imageUrl = "/uploads/" + newFileName;
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        double lat = 11.940;
+        double lng = 108.450;
+        try {
+            if (coordinates != null && coordinates.contains(",")) {
+                String[] parts = coordinates.split(",");
+                lat = Double.parseDouble(parts[0].trim());
+                lng = Double.parseDouble(parts[1].trim());
+            }
+        } catch (Exception e) {}
+
         Location loc = Location.builder()
                 .name(name)
                 .category("KHAC")
-                .latitude(11.940)
-                .longitude(108.450)
+                .latitude(lat)
+                .longitude(lng)
                 .description("Cập nhật bởi Đại lý")
+                .imageUrl(imageUrl)
                 .build();
                 
         locationRepository.save(loc);
