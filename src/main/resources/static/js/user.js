@@ -293,8 +293,8 @@ function renderServicesGrid(data) {
             ? 'background:rgba(52,211,153,.2);color:#34d399;'
             : 'background:rgba(129,140,248,.2);color:#818cf8;';
         const imgHtml = s.imageUrl
-            ? `<img src="${s.imageUrl}" class="service-img" onerror="this.onerror=null;this.parentElement.querySelector('.service-img').replaceWith(Object.assign(document.createElement('div'),{className:'service-img',style:'display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(52,211,153,.1));border-radius:12px 12px 0 0',innerHTML:'<i class=\\'fas fa-image\\' style=\\'font-size:3rem;color:rgba(129,140,248,.5)\\'></i>'}))" alt="${s.name}">`
-            : `<div class="service-img" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(52,211,153,.1));border-radius:12px 12px 0 0"><i class="fas fa-image" style="font-size:3rem;color:rgba(129,140,248,.5)"></i></div>`;
+            ? `<img src="${s.imageUrl}" class="service-img" onerror="this.onerror=null; this.src='https://picsum.photos/seed/${s.id}/400/300';" style="object-fit: cover; width: 100%; height: 200px; border-radius: 12px 12px 0 0;" alt="${s.name}">`
+            : `<div class="service-img" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(52,211,153,.1));border-radius:12px 12px 0 0; height: 200px;"><i class="fas fa-image" style="font-size:3rem;color:rgba(129,140,248,.5)"></i></div>`;
         grid.innerHTML += `
         <div class="service-card glass-panel" style="position:relative">
             ${distanceHtml}
@@ -424,8 +424,7 @@ function showUserOrderDetail(encodedData) {
         ['📅 Ngày đến', o.bookingDate || '—'],
         ['⏰ Giờ đến', o.bookingTime ? `<b>${o.bookingTime}</b>` : '—'],
         ['🏁 Ngày kết thúc', o.endDate || '—'],
-        ['🌙 Thời gian thuê', o.bookingDays ? `<b>${o.bookingDays}</b> ${o.serviceType === 'HOTEL' ? 'đêm' : 'ngày'}` : '—'],
-        ['👥 Số lượng đặt', o.quantity ? `<b>${o.quantity}</b> ${o.serviceType === 'HOTEL' ? 'phòng' : 'người'}` : '—'],
+[o.serviceType === 'HOTEL' ? '🌙 Thời gian thuê' : '🌙 Thời lượng', o.bookingDays ? `<b>${o.bookingDays}</b> ${o.serviceType === 'HOTEL' ? 'đêm' : 'ngày'}` : '—'],        ['👥 Số lượng đặt', o.quantity ? `<b>${o.quantity}</b> ${o.serviceType === 'HOTEL' ? 'phòng' : 'người'}` : '—'],
         ['📅 Ngày tạo đơn', o.orderDate || '—'],
         ['💰 Tổng thanh toán', `<span style="color:#f43f5e;font-weight:bold;font-size:1.1rem">${fmt(o.totalAmount)}</span>`],
         ['📋 Trạng thái', `<span style="font-weight:700">${statusLabels[o.status] || o.status}</span>`],
@@ -608,8 +607,7 @@ function showBookingModal(s) {
             if (hasTime && !bookingTime) { alert('Vui lòng chọn giờ đến!'); return; }
             const quantity = parseInt(document.getElementById('bookQty').value) || 1;
             const numberOfPeople = !isTour ? (parseInt(document.getElementById('bookPeople').value) || 1) : quantity;
-            const bookingDays = isHotel ? (parseInt(document.getElementById('bookDays').value) || 1) : 1;
-            modal.remove();
+const bookingDays = isHotel ? (parseInt(document.getElementById('bookDays').value) || 1) : (s.durationDays || 1);            modal.remove();
             resolve({ quantity, bookingDays, bookingDate, bookingTime, numberOfPeople });
         };
     });
