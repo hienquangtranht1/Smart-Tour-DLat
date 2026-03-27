@@ -1,5 +1,3 @@
-Dựa trên cấu trúc và mã nguồn của dự án SmartTour mà bạn đã cung cấp, dưới đây là nội dung file README.md được thiết kế chuyên nghiệp để bạn bổ sung vào profile/portfolio của mình.
-
 🌲 SmartTour - Hệ Thống Quản Lý Du Lịch Đà Lạt Thông Minh
 SmartTour là một ứng dụng web được xây dựng trên nền tảng Spring Boot, được thiết kế để tối ưu hóa việc quản lý tour du lịch, đặt chỗ và kết nối người dùng với các dịch vụ lữ hành tại thành phố Đà Lạt. Dự án tích hợp các công nghệ hiện đại như Trí tuệ nhân tạo (Gemini AI) và thanh toán trực tuyến.
 
