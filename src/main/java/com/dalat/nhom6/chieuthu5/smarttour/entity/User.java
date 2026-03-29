@@ -44,6 +44,14 @@ public class User {
     @Column(name = "is_email_verified")
     private Boolean isEmailVerified;
 
+    // Lưu Google account sub ID để nhận diện tài khoản Google
+    @Column(name = "google_id", length = 100, unique = true)
+    private String googleId;
+
+    // Trạng thái kích hoạt tài khoản (Admin có thể bật/tắt)
+    @Column(name = "is_active")
+    private Boolean isActive;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -57,5 +65,6 @@ public class User {
         if (this.isLocked == null) this.isLocked = false;
         if (this.role == null) this.role = Role.USER;
         if (this.isEmailVerified == null) this.isEmailVerified = false;
+        if (this.isActive == null) this.isActive = true;
     }
 }

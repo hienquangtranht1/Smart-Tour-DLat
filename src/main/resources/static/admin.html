@@ -260,6 +260,8 @@
                 <a href="#" class="nav-link" data-target="services"><i class="fas fa-box-open"></i> Dịch Vụ Chờ
                     Duyệt</a>
                 <a href="#" class="nav-link" data-target="users"><i class="fas fa-users"></i> Khách Hàng (User)</a>
+                <a href="#" class="nav-link" data-target="reviews"><i class="fas fa-star"></i> Đánh Giá & Báo Cáo</a>
+                <a href="#" class="nav-link" data-target="search-partner"><i class="fas fa-search"></i> Tra Cứu Đối Tác</a>
                 <a href="#" class="nav-link" data-target="configs"><i class="fas fa-key"></i> API Keys Hệ Thống</a>
                 <a href="#" class="nav-link" data-target="notifications" id="btnNotifications"
                     style="color:#fcd34d; position:relative;">
@@ -396,15 +398,15 @@
                                 class="fas fa-sync-alt"></i> Làm mới</button>
                     </div>
                     <div class="table-wrap">
-                        <table class="data-table">
+                        <table class="data-table" id="tableServices">
                             <thead>
                                 <tr>
                                     <th>Ảnh</th>
-                                    <th>Tên Sản Phẩm</th>
-                                    <th>Loại</th>
-                                    <th>Đại Lý Bán</th>
-                                    <th>Giá</th>
-                                    <th>Trạng Thái</th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableServices', 1)" title="Sắp xếp">Tên Sản Phẩm <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableServices', 2)" title="Sắp xếp">Loại <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableServices', 3)" title="Sắp xếp">Đại Lý Bán <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableServices', 4)" title="Sắp xếp">Giá <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableServices', 5)" title="Sắp xếp">Trạng Thái <i class="fas fa-sort text-muted"></i></th>
                                     <th>Thao Tác</th>
                                 </tr>
                             </thead>
@@ -427,12 +429,13 @@
                             Làm mới</button>
                     </div>
                     <div class="table-wrap">
-                        <table class="data-table">
+                        <table class="data-table" id="tableUsers">
                             <thead>
                                 <tr>
-                                    <th>Khách Hàng</th>
-                                    <th>Email</th>
-                                    <th>Ngày Đăng Ký</th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 0)" title="Sắp xếp">Khách Hàng <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 1)" title="Sắp xếp">Email <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 2)" title="Sắp xếp">Ngày Đăng Ký <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 3)" title="Sắp xếp">Trạng Thái <i class="fas fa-sort text-muted"></i></th>
                                     <th style="text-align:right">Thao Tác</th>
                                 </tr>
                             </thead>
@@ -466,6 +469,59 @@
                     <h4 style="margin-bottom:1rem"><i class="fas fa-list-check" style="color:#818cf8"></i> Các Key Đang
                         Hoạt Động</h4>
                     <div id="configList"></div>
+                </div>
+            </div>
+
+            <!-- TAB: Đánh giá & Báo cáo -->
+            <div id="reviews" class="tab-content animate-fade-in" style="display:none">
+                <div class="glass-panel" style="padding:1.75rem">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+                        <h3><i class="fas fa-star" style="color:#fbbf24"></i> Quản Lý Đánh Giá & Báo Cáo</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="fetchPendingReviews()"><i class="fas fa-sync-alt"></i> Làm mới</button>
+                    </div>
+                    <div class="table-wrap">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Của Khách</th>
+                                    <th>Dịch Vụ (Đại Lý)</th>
+                                    <th>Loại</th>
+                                    <th>Rating</th>
+                                    <th>Nội Dung</th>
+                                    <th>Ngày Gửi</th>
+                                    <th style="text-align:right">Thao Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reviewsList">
+                                <tr class="empty-row"><td colspan="7"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Tra Cứu Đối Tác -->
+            <div id="search-partner" class="tab-content animate-fade-in" style="display:none">
+                <div class="glass-panel" style="padding:1.75rem">
+                    <h3 style="margin-bottom:1.5rem"><i class="fas fa-search" style="color:#818cf8"></i> Tra Cứu Đại Lý / Dịch Vụ</h3>
+                    <div style="display:flex; gap: 1rem; margin-bottom: 2rem;">
+                        <input type="text" id="adminSearchKeyword" class="input-glass" style="flex:1" placeholder="Nhập tên công ty, mã số thuế (msst), số điện thoại hoặc dịch vụ để tìm...">
+                        <button class="btn btn-primary" onclick="adminSearchPartners()"><i class="fas fa-search"></i> Tìm Kiếm</button>
+                    </div>
+                    <div class="table-wrap" id="adminSearchResults" style="display:none;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Tên Đại Lý</th>
+                                    <th>Mã số (MSST)</th>
+                                    <th>Liên Hệ</th>
+                                    <th>Dịch Vụ Cung Cấp</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminSearchList">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

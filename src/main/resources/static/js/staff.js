@@ -101,37 +101,58 @@ async function fetchInfo() {
 }
 
 // ── 3. DANH SÁCH DỊCH VỤ (của Đại lý) ──────────────────
+let allServicesData = [];
+
 async function fetchServices() {
     const tbody = document.getElementById('servicesList');
     if (!tbody) return;
     try {
         const res = await fetch('/api/staff/services');
         if (!res.ok) return;
-        const data = await res.json();
-        tbody.innerHTML = '';
-        if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-cell" style="text-align:center;padding:1rem;color:#64748b">Trống! Nhập form bên trên để thêm rổ hàng nhé!</td></tr>';
-            return;
-        }
-        data.forEach(s => {
-            const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(s.salePrice || s.price || 0);
-            const statusBadge = s.isApproved
-                ? '<span class="badge" style="color:#10b981;background:#d1fae5;padding:4px 8px;border-radius:12px;font-size:0.75rem;font-weight:bold">✔ Đã Duyệt</span>'
-                : '<span class="badge" style="color:#f59e0b;background:#fef3c7;padding:4px 8px;border-radius:12px;font-size:0.75rem;font-weight:bold">⏳ Chờ Admin Duyệt</span>';
-            const sJson = encodeURIComponent(JSON.stringify(s));
-            tbody.innerHTML += `
-            <tr style="border-bottom:1px solid #e2e8f0">
-                <td style="padding:0.75rem"><img src="${s.imageUrl}" style="width:50px;height:50px;border-radius:6px;object-fit:cover" onerror="this.src='https://picsum.photos/seed/${s.id}/60/60'"></td>
-                <td style="padding:0.75rem"><b>${s.serviceName || s.name}</b><br><span style="font-size:0.8rem;color:#64748b">${s.description || ''}</span></td>
-                <td style="padding:0.75rem"><span style="background:#e0e7ff;color:#4f46e5;padding:4px 8px;border-radius:6px;font-size:0.8rem;font-weight:bold">${s.serviceType || s.type}</span></td>
-                <td style="padding:0.75rem;color:#f43f5e;font-weight:bold">${price}</td>
-                <td style="padding:0.75rem">${statusBadge}</td>
-                <td style="padding:0.75rem;text-align:right">
-                    <button class="btn btn-primary btn-sm" onclick="editService('${sJson}')" style="padding:6px 12px;font-size:0.8rem"><i class="fas fa-edit"></i> Sửa</button>
-                </td>
-            </tr>`;
-        });
+        allServicesData = await res.json();
+        renderServicesList(allServicesData);
     } catch {}
+}
+
+function renderServicesList(data) {
+    const tbody = document.getElementById('servicesList');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    if (data.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-cell" style="text-align:center;padding:1rem;color:#64748b">Không tìm thấy dịch vụ nào!</td></tr>';
+        return;
+    }
+    data.forEach(s => {
+        const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(s.salePrice || s.price || 0);
+        const statusBadge = s.isApproved
+            ? '<span class="badge" style="color:#10b981;background:#d1fae5;padding:4px 8px;border-radius:12px;font-size:0.75rem;font-weight:bold">✔ Đã Duyệt</span>'
+            : '<span class="badge" style="color:#f59e0b;background:#fef3c7;padding:4px 8px;border-radius:12px;font-size:0.75rem;font-weight:bold">⏳ Chờ Admin Duyệt</span>';
+        const sJson = encodeURIComponent(JSON.stringify(s));
+        tbody.innerHTML += `
+        <tr style="border-bottom:1px solid #e2e8f0">
+            <td style="padding:0.75rem"><img src="${s.imageUrl}" style="width:50px;height:50px;border-radius:6px;object-fit:cover" onerror="this.src='https://picsum.photos/seed/${s.id}/60/60'"></td>
+            <td style="padding:0.75rem"><b>${s.serviceName || s.name}</b><br><span style="font-size:0.8rem;color:#64748b">${s.description || ''}</span></td>
+            <td style="padding:0.75rem"><span style="background:#e0e7ff;color:#4f46e5;padding:4px 8px;border-radius:6px;font-size:0.8rem;font-weight:bold">${s.serviceType || s.type}</span></td>
+            <td style="padding:0.75rem;color:#f43f5e;font-weight:bold">${price}</td>
+            <td style="padding:0.75rem">${statusBadge}</td>
+            <td style="padding:0.75rem;text-align:right">
+                <button class="btn btn-primary btn-sm" onclick="editService('${sJson}')" style="padding:6px 12px;font-size:0.8rem"><i class="fas fa-edit"></i> Sửa</button>
+            </td>
+        </tr>`;
+    });
+}
+
+function filterServicesList() {
+    const keyword = (document.getElementById('svcSearchInput')?.value || '').toLowerCase().trim();
+    const typeFilter = document.getElementById('svcSearchType')?.value || '';
+    const filtered = allServicesData.filter(s => {
+        const name = (s.serviceName || s.name || '').toLowerCase();
+        const type = (s.serviceType || s.type || '').toUpperCase();
+        const matchKeyword = !keyword || name.includes(keyword);
+        const matchType = !typeFilter || type === typeFilter;
+        return matchKeyword && matchType;
+    });
+    renderServicesList(filtered);
 }
 
 // ── 4. ĐƠN ĐẶT HÀNG (Orders) ─────────────────────────────
@@ -154,35 +175,32 @@ async function fetchOrders() {
             if (o.status === 'PENDING') {
                 statusBadge = '<span class="badge badge-pending">⏳ Chờ duyệt</span>';
                 actionBtn = `
-                    <div style="display:flex;gap:6px;justify-content:flex-end">
-                        <button class="btn btn-success btn-xs" onclick="approveOrder(${o.id})" title="Xác nhận & Gửi Email"><i class="fas fa-check"></i> Duyệt</button>
-                        <button class="btn btn-danger btn-xs" onclick="deleteOrder(${o.id})" title="Từ chối và Xoá vĩnh viễn"><i class="fas fa-trash"></i> Xóa</button>
-                    </div>
+                    <button class="btn btn-success btn-xs" onclick="approveOrder(${o.id})" title="Xác nhận & Gửi Email"><i class="fas fa-check"></i> Duyệt</button>
+                    <button class="btn btn-danger btn-xs" onclick="deleteOrder(${o.id})" title="Từ chối và Xoá"><i class="fas fa-trash"></i> Xóa</button>
                 `;
             } else if (o.status === 'AWAITING_PAYMENT') {
-                statusBadge = '<span class="badge" style="background:rgba(244,63,94,.15);color:#f43f5e;padding:.3rem .8rem;border-radius:999px;font-size:.7rem;font-weight:700">💳 Chờ Thanh Toán</span>';
-                actionBtn = '<span style="color:var(--text-muted);font-size:0.75rem">Chờ Khách VNPAY</span>';
+                statusBadge = '<span class="badge" style="background:rgba(244,63,94,.15);color:#f43f5e;padding:.3rem .8rem;border-radius:999px;font-size:.7rem;font-weight:700">💳 Chờ TT</span>';
+                actionBtn = `<button class="btn btn-danger btn-xs" onclick="deleteOrder(${o.id})" title="Hủy đơn chưa thanh toán"><i class="fas fa-ban"></i> Hủy đơn</button>`;
             } else if (o.status === 'PAID') {
-                statusBadge = '<span class="badge" style="background:rgba(16,185,129,.15);color:#10b981;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem">✔ ĐÃ THANH TOÁN</span>';
-                actionBtn = `<button class="btn btn-primary btn-xs" onclick="startTrip(${o.id})"><i class="fas fa-play"></i> Bắt đầu chuyến</button>`;
+                statusBadge = '<span class="badge" style="background:rgba(16,185,129,.15);color:#10b981;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem">✔ ĐÃ TT</span>';
+                actionBtn = `<button class="btn btn-primary btn-xs" onclick="startTrip(${o.id})"><i class="fas fa-play"></i> Bắt đầu</button>`;
             } else if (o.status === 'IN_PROGRESS') {
-                // Nếu là Khách Sạn: Chặn tương tác, để hệ thống tự xử lý
                 if (o.serviceType === 'HOTEL') {
-                    statusBadge = '<span class="badge" style="background:rgba(139,92,246,.15);color:#8b5cf6;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem"><i class="fas fa-bed"></i> ĐANG SỬ DỤNG</span>';
-                    actionBtn = '<span class="text-muted" style="font-size:0.75rem; font-weight: bold;"><i class="fas fa-robot"></i> Hệ thống tự kết thúc</span>';
-                } 
-                // Các dịch vụ khác (Tour...): Staff vẫn tự bấm tay như bình thường
-                else {
-                    statusBadge = '<span class="badge" style="background:rgba(139,92,246,.15);color:#8b5cf6;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem"><i class="fas fa-route"></i> ĐANG TIẾN HÀNH</span>';
-                    actionBtn = `<button class="btn btn-success btn-xs" onclick="completeTrip(${o.id})"><i class="fas fa-flag-checkered"></i> Hoàn thành chuyến</button>`;
+                    statusBadge = '<span class="badge" style="background:rgba(139,92,246,.15);color:#8b5cf6;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem"><i class="fas fa-bed"></i> ĐANG SD</span>';
+                    actionBtn = `<span style="color:#94a3b8;font-size:0.72rem"><i class="fas fa-robot"></i> Tự kết thúc</span>`;
+                } else {
+                    statusBadge = '<span class="badge" style="background:rgba(139,92,246,.15);color:#8b5cf6;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem"><i class="fas fa-route"></i> ĐANG TH</span>';
+                    actionBtn = `<button class="btn btn-success btn-xs" onclick="completeTrip(${o.id})"><i class="fas fa-flag-checkered"></i> Hoàn thành</button>`;
                 }
             } else if (o.status === 'COMPLETED') {
-                statusBadge = '<span class="badge" style="background:rgba(100,116,139,.15);color:#64748b;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem">✅ ĐÃ KẾT THÚC</span>';
-                actionBtn = '<span class="text-muted" style="font-size:0.75rem">Không thao tác</span>';
+                statusBadge = '<span class="badge" style="background:rgba(100,116,139,.15);color:#64748b;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem">✅ KẾT THÚC</span>';
+                actionBtn = `<span style="color:#94a3b8;font-size:0.72rem">Không thao tác</span>`;
+            } else if (o.status === 'CANCELLED') {
+                statusBadge = '<span class="badge" style="background:rgba(239,68,68,.1);color:#ef4444;font-weight:bold;padding:.3rem .8rem;border-radius:999px;font-size:.7rem">🚫 ĐÃ HỦY</span>';
+                actionBtn = `<span style="color:#94a3b8;font-size:0.72rem">Đã hủy</span>`;
             }
 
             const amount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(o.totalAmount);
-            // Serialize dữ liệu để truyền vào modal
             const oEncoded = encodeURIComponent(JSON.stringify(o));
             tbody.innerHTML += `
             <tr>
@@ -190,28 +208,41 @@ async function fetchOrders() {
                 <td>${o.customerName}</td>
                 <td class="text-sm">${o.serviceName}</td>
                 <td class="price-cell">${amount}</td>
-                <td style="text-align:center">${statusBadge}</td>
-                <td style="text-align:right">
-                    <div style="display:flex;gap:4px;justify-content:flex-end;align-items:center">
-                        <button class="btn btn-primary btn-xs" onclick="showOrderDetail('${oEncoded}')" style="background:#6366f1;border:none"><i class="fas fa-eye"></i> Chi tiết</button>
+                <td style="text-align:center;white-space:nowrap">${statusBadge}</td>
+                <td>
+                    <div style="display:flex;gap:6px;justify-content:flex-end;align-items:center;flex-wrap:nowrap">
+                        <button class="btn btn-primary btn-xs" onclick="showOrderDetail('${oEncoded}')" style="background:#6366f1;border:none;white-space:nowrap"><i class="fas fa-eye"></i> Chi tiết</button>
                         ${actionBtn}
                     </div>
                 </td>
             </tr>`;
         });
-    } catch {}
+    } catch(e) { console.error(e); }
 }
 
 async function approveOrder(id) {
     try {
         const res = await fetch(`/api/staff/orders/${id}/approve`, { method: 'POST' });
+        const dt = await res.json().catch(() => ({}));
         if (res.ok) {
             showToast('Đã xác nhận đơn hàng #' + String(id).padStart(5,'0'));
-            setTimeout(() => { fetchOrders(); fetchServices(); }, 400); // chờ backend commit
-        }
-        else {
-            try { const dt = await res.json(); showToast(dt.error || 'Lỗi xác nhận đơn!', true); } 
-            catch(e) { showToast('Lỗi HTTP: ' + res.status, true); }
+            // Cập nhật ngay dòng trong bảng mà không cần reload trang
+            const rows = document.querySelectorAll('#orderTableBody tr');
+            for (const row of rows) {
+                if (row.querySelector('.order-id')?.textContent === '#' + String(id).padStart(5,'0')) {
+                    row.querySelector('td:nth-child(5)').innerHTML = '<span class="badge" style="background:rgba(244,63,94,.15);color:#f43f5e;padding:.3rem .8rem;border-radius:999px;font-size:.7rem;font-weight:700">💳 Chờ Thanh Toán</span>';
+                    row.querySelector('td:nth-child(6) div').innerHTML = `
+                        <button class="btn btn-primary btn-xs" onclick="showOrderDetail(this.closest('tr').dataset.encoded)" style="background:#6366f1;border:none"><i class="fas fa-eye"></i> Chi tiết</button>
+                        <span style="color:var(--text-muted);font-size:0.75rem;align-self:center">Chờ Khách VNPAY</span>
+                        <button class="btn btn-danger btn-xs" onclick="deleteOrder(${id})"><i class="fas fa-ban"></i> Hủy đơn</button>
+                    `;
+                    break;
+                }
+            }
+            // Reload lại toàn bộ sau 1 giây để đồng bộ
+            setTimeout(() => fetchOrders(), 1000);
+        } else {
+            showToast(dt.error || 'Lỗi xác nhận đơn!', true);
         }
     } catch(err) { showToast('Lỗi mạng', true); }
 }
@@ -735,3 +766,49 @@ document.addEventListener('DOMContentLoaded', () => {
     initTypeChange();
     setTimeout(initServiceMap, 200);
 });
+
+// ── 12. TRA CỨU ĐỐI TÁC ────────────────────────────────
+function staffSearchPartners() {
+    const keyword = document.getElementById('staffSearchKeyword').value.trim();
+    const resultContainer = document.getElementById('staffSearchResults');
+    const tbody = document.getElementById('staffSearchList');
+    
+    if (!keyword) {
+        showToast('Vui lòng nhập từ khóa tìm kiếm', true);
+        return;
+    }
+    
+    resultContainer.style.display = 'block';
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Đang tìm kiếm...</td></tr>';
+    
+    fetch(`/api/staff/search-agencies?keyword=${encodeURIComponent(keyword)}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data || data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:#64748b;">Không tìm thấy đối tác nào phù hợp.</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = data.map(a => {
+                let servicesHtml = '';
+                if (a.services && a.services.length > 0) {
+                    servicesHtml = '<ul style="margin:0;padding-left:1.5rem;font-size:0.85rem;">' + 
+                        a.services.map(s => `<li>${s.name} <span class="badge" style="background:#e2e8f0;color:#475569;font-size:0.6rem;padding:2px 4px;">${s.type}</span></li>`).join('') + 
+                        '</ul>';
+                } else {
+                    servicesHtml = '<span style="color:#94a3b8;font-size:0.85rem;">Chưa có dịch vụ</span>';
+                }
+                
+                return `
+                <tr>
+                    <td><b>${a.agencyName}</b></td>
+                    <td>${a.taxCode || '—'}</td>
+                    <td><div style="font-size:0.85rem;"><i class="fas fa-phone" style="width:16px;"></i> ${a.phone || '—'}<br><i class="fas fa-envelope" style="width:16px;"></i> ${a.email || '—'}</div></td>
+                    <td>${servicesHtml}</td>
+                </tr>`;
+            }).join('');
+        })
+        .catch(err => {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:2rem;color:#ef4444;">Lỗi khi tra cứu.</td></tr>';
+        });
+}

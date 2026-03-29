@@ -15,6 +15,12 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import org.springframework.beans.factory.annotation.Value;
+
 import java.util.*;
 
 @RestController
@@ -29,7 +35,90 @@ public class AuthController {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Value("${google.client.id}")
+    private String googleClientId;
+
     private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    // ── 0. ĐĂNG NHẬP GOOGLE (OAuth2) ─────────────────────────
+    @PostMapping("/google")
+    public ResponseEntity<?> googleLogin(@RequestParam("credential") String idTokenString,
+                                          HttpServletRequest request) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                    new NetHttpTransport(), GsonFactory.getDefaultInstance())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(idTokenString);
+            if (idToken == null) {
+                return ResponseEntity.status(401).body(Map.of("status", "error", "message", "Token Google không hợp lệ!"));
+            }
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String googleId = payload.getSubject();
+            String email    = payload.getEmail();
+            String fullName = (String) payload.get("name");
+            String avatar   = (String) payload.get("picture");
+
+            // Tìm user theo googleId (đã từng đăng nhập Google)
+            User user = userRepository.findByGoogleId(googleId).orElse(null);
+
+            if (user == null) {
+                // Kiểm tra email đã tồn tại trong hệ thống bằng tài khoản thường chưa
+                user = userRepository.findByEmail(email).orElse(null);
+                if (user != null) {
+                    // Liên kết tài khoản Google vào account email cũ
+                    user.setGoogleId(googleId);
+                    if (avatar != null && user.getAvatarUrl() == null) user.setAvatarUrl(avatar);
+                    if (fullName != null && user.getFullName() == null) user.setFullName(fullName);
+                    user.setIsEmailVerified(true);
+                    userRepository.save(user);
+                } else {
+                    // Tạo tài khoản mới từ Google
+                    String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9]", "");
+                    String username = baseUsername;
+                    int suffix = 1;
+                    while (userRepository.existsByUsername(username)) {
+                        username = baseUsername + suffix++;
+                    }
+                    user = User.builder()
+                            .username(username)
+                            .password(passwordEncoder.encode(UUID.randomUUID().toString())) // random pass
+                            .email(email)
+                            .fullName(fullName)
+                            .avatarUrl(avatar)
+                            .googleId(googleId)
+                            .role(Role.USER)
+                            .isLocked(false)
+                            .isEmailVerified(true)
+                            .isActive(true)
+                            .build();
+                    userRepository.save(user);
+                }
+            }
+
+            // Kiểm tra tài khoản có bị khóa không
+            if (Boolean.TRUE.equals(user.getIsLocked())) {
+                return ResponseEntity.status(403).body(Map.of("status", "error", "message", "Tài khoản đã bị khóa bởi Admin!"));
+            }
+
+            // Tạo session
+            HttpSession session = request.getSession(true);
+            session.setAttribute("USER_ID", user.getId());
+            session.setAttribute("USER_ROLE", user.getRole().name());
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "role", user.getRole().name(),
+                    "fullName", user.getFullName() != null ? user.getFullName() : user.getUsername(),
+                    "avatar", user.getAvatarUrl() != null ? user.getAvatarUrl() : "",
+                    "redirect", "/" + user.getRole().name().toLowerCase() + ".html"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("status", "error", "message", "Lỗi xác thực Google: " + e.getMessage()));
+        }
+    }
 
     // ── 1. ĐĂNG NHẬP ─────────────────────────────────────────
     @PostMapping("/login")

@@ -56,6 +56,13 @@
 			<artifactId>spring-security-crypto</artifactId>
 		</dependency>
 
+		<!-- Google API Client để xác thực Google ID Token -->
+		<dependency>
+			<groupId>com.google.api-client</groupId>
+			<artifactId>google-api-client</artifactId>
+			<version>2.2.0</version>
+		</dependency>
+
 		<!-- Thư viện Jackson để Parse JSON của Gemini API -->
 		<dependency>
 			<groupId>com.fasterxml.jackson.core</groupId>

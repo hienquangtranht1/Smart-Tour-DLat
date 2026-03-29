@@ -51,6 +51,7 @@
                 <a href="#" class="nav-link" data-target="locations">
                     <i class="fas fa-map-pin"></i> Hỗ trợ Địa điểm (AI)
                 </a>
+
                 <a href="#" class="nav-link" data-target="notifications" id="btnNotifications"
                     style="color:#fcd34d; position:relative;">
                     <i class="fas fa-bell"></i> Chuông Báo <span id="unreadCount"
@@ -77,15 +78,7 @@
             <!-- TAB 1: QUẢN LÝ DỊCH VỤ -->
             <div id="manage" class="tab-content animate-fade-in" style="display:block">
 
-                <!-- Biểu đồ Doanh thu Đại lý -->
-                <div
-                    style="background: #fff; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 2rem;">
-                    <h3 style="color: #1e293b; margin-bottom: 1rem;"><i class="fas fa-chart-bar"></i> Biểu Đồ Doanh Thu
-                        Đại Lý (Năm Nay)</h3>
-                    <div style="position: relative; height: 350px; width: 100%;">
-                        <canvas id="staffRevenueChart"></canvas>
-                    </div>
-                </div>
+
                 <!-- Form đăng dịch vụ mới -->
                 <div class="glass-panel" style="padding:2rem;margin-bottom:1.5rem">
                     <h3 style="margin-bottom:1rem"><i class="fas fa-plus-circle text-primary"></i> Đăng Tải Dịch Vụ /
@@ -191,6 +184,19 @@
                     </form>
                 </div>
 
+                <!-- Tìm kiếm dịch vụ -->
+                <div style="display:flex;gap:0.75rem;margin-bottom:1rem;align-items:center">
+                    <input type="text" id="svcSearchInput" class="input-glass" placeholder="🔍 Tìm theo tên dịch vụ, loại hình..." style="flex:1;max-width:400px" oninput="filterServicesList()">
+                    <select id="svcSearchType" class="input-glass" style="width:160px;background:var(--bg-dark)" onchange="filterServicesList()">
+                        <option value="">Tất cả loại</option>
+                        <option value="TOUR">Tour</option>
+                        <option value="HOTEL">Khách sạn</option>
+                        <option value="RESTAURANT">Nhà hàng</option>
+                        <option value="CAFE">Cà Phê</option>
+                        <option value="ENTERTAINMENT">Vui chơi</option>
+                    </select>
+                    <button class="btn btn-secondary btn-sm" onclick="fetchServices()"><i class="fas fa-sync-alt"></i> Làm mới</button>
+                </div>
                 <!-- Bảng danh sách dịch vụ của đại lý -->
                 <div class="glass-panel" style="padding:1.75rem">
                     <div style="display:flex;justify-content:space-between;margin-bottom:1rem;align-items:center">
@@ -233,11 +239,12 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th>Mã Đơn</th>
-                                    <th>Khách hàng</th>
+                                    <th style="width:90px">Mã Đơn</th>
+                                    <th style="width:110px">Khách hàng</th>
                                     <th>Dịch vụ</th>
-                                    <th>Tổng Tiền</th>
-                                    <th>Thao tác</th>
+                                    <th style="width:120px">Tổng Tiền</th>
+                                    <th style="width:130px;text-align:center">Trạng Thái</th>
+                                    <th style="width:200px;text-align:right">Hành Động</th>
                                 </tr>
                             </thead>
                             <tbody id="ordersList">
@@ -259,6 +266,13 @@
                             Thống</h3>
                         <button class="btn btn-secondary btn-sm" onclick="fetchRevenue()"><i
                                 class="fas fa-sync-alt"></i> Làm mới</button>
+                    </div>
+                    <!-- Biểu đồ Doanh thu Đại lý -->
+                    <div style="background: #fff; padding: 1.5rem; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 1.5rem;">
+                        <h3 style="color: #1e293b; margin-bottom: 1rem;"><i class="fas fa-chart-bar"></i> Biểu Đồ Doanh Thu Đại Lý (Năm Nay)</h3>
+                        <div style="position: relative; height: 320px; width: 100%;">
+                            <canvas id="staffRevenueChart"></canvas>
+                        </div>
                     </div>
                     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;margin-bottom:1.5rem">
                         <div class="glass-panel" style="padding:1.2rem;text-align:center">
@@ -340,6 +354,7 @@
                     <div id="osm-map" style="width:100%;height:500px;border-radius:12px;overflow:hidden"></div>
                 </div>
             </div>
+
 
             <!-- TAB: Màn hình Thông báo -->
             <div id="notifications" class="tab-content animate-fade-in" style="display:none">

@@ -129,6 +129,7 @@ public class AdminController {
             map.put("type", s.getServiceType());
             map.put("price", s.getSalePrice() != null ? s.getSalePrice() : s.getOriginalPrice());
             map.put("isApproved", s.getIsApproved() != null ? s.getIsApproved() : false);
+            map.put("isActive", s.getIsActive() != null ? s.getIsActive() : true);
             map.put("imageUrl", s.getImageUrl() != null ? s.getImageUrl() : "https://via.placeholder.com/150");
             
             map.put("description", s.getDescription());
@@ -165,6 +166,19 @@ public class AdminController {
             }
 
             return ResponseEntity.ok(Map.of("status", "success"));
+        }
+        return ResponseEntity.badRequest().build();
+    }
+
+    @PostMapping("/services/{id}/toggle")
+    public ResponseEntity<?> toggleServiceActive(@PathVariable("id") Integer id, HttpServletRequest request) {
+        if (!isAdmin(request)) return ResponseEntity.status(403).build();
+        Service s = serviceRepository.findById(id).orElse(null);
+        if (s != null) {
+            boolean current = s.getIsActive() != null ? s.getIsActive() : true;
+            s.setIsActive(!current);
+            serviceRepository.save(s);
+            return ResponseEntity.ok(Map.of("status", "success", "isActive", s.getIsActive()));
         }
         return ResponseEntity.badRequest().build();
     }
@@ -299,11 +313,30 @@ public class AdminController {
                 m.put("fullName", u.getFullName());
                 m.put("phone", u.getPhone());
                 m.put("isEmailVerified", u.getIsEmailVerified());
+                m.put("isActive", u.getIsActive() != null ? u.getIsActive() : true);
                 m.put("createdAt", u.getCreatedAt());
                 m.put("avatarUrl", u.getAvatarUrl());
                 return m;
             }).collect(Collectors.toList());
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/users/{id}/toggle-active")
+    public ResponseEntity<?> toggleUserActive(@PathVariable("id") Integer id, HttpServletRequest request) {
+        if (!isAdmin(request)) return ResponseEntity.status(403).build();
+        User u = userRepository.findById(id).orElse(null);
+        if (u != null) {
+            boolean current = u.getIsActive() != null ? u.getIsActive() : true;
+            u.setIsActive(!current);
+            if (!current) {
+                u.setIsLocked(false); // Nếu active lại thì unlock luôn
+            } else {
+                u.setIsLocked(true); // Nếu inactive thì lock
+            }
+            userRepository.save(u);
+            return ResponseEntity.ok(Map.of("status", "success", "isActive", u.getIsActive()));
+        }
+        return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy User"));
     }
 
     @PostMapping("/users/{id}/delete")

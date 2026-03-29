@@ -624,4 +624,42 @@ public class StaffController {
         }
         return ResponseEntity.ok(Map.of("monthlyRevenue", monthlyRevenue));
     }
+
+    @GetMapping("/search-agencies")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> searchAgencies(
+            @RequestParam(value = "keyword", required = false, defaultValue = "") String keyword,
+            HttpServletRequest request) {
+        
+        HttpSession session = request.getSession(false);
+        if (session == null || session.getAttribute("USER_ROLE") == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        List<Agency> agencies = agencyRepository.searchAgenciesByKeyword(keyword);
+        List<Map<String, Object>> result = new ArrayList<>();
+
+        for (Agency a : agencies) {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("id", a.getId());
+            map.put("agencyName", a.getAgencyName());
+            map.put("taxCode", a.getTaxCode());
+            map.put("contactPhone", a.getContactPhone());
+            map.put("address", a.getAddress());
+
+            List<Service> services = serviceRepository.findByAgencyId(a.getId());
+            List<Map<String, Object>> serviceList = new ArrayList<>();
+            for (Service s : services) {
+                Map<String, Object> sMap = new HashMap<>();
+                sMap.put("id", s.getId());
+                sMap.put("serviceName", s.getServiceName());
+                sMap.put("serviceType", s.getServiceType());
+                serviceList.add(sMap);
+            }
+            map.put("services", serviceList);
+            result.add(map);
+        }
+
+        return ResponseEntity.ok(result);
+    }
 }

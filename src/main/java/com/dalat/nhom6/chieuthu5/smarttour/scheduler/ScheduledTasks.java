@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -67,47 +67,9 @@ public class ScheduledTasks {
         }
     }
 
-    // 2. TỰ ĐỘNG HỦY ĐƠN CHƯA THANH TOÁN TRƯỚC 1 NGÀY (Kiểm tra mỗi 1 phút)
-    @Scheduled(fixedRate = 60000)
-    @Transactional
-    public void autoCancelUnpaidOrders() {
-        // Tìm các đơn chưa thanh toán hoặc chưa duyệt
-        List<Order> unpaidOrders = orderRepository.findAll().stream()
-                .filter(o -> "PENDING".equals(o.getStatus()) || "AWAITING_PAYMENT".equals(o.getStatus()))
-                .toList();
-
-        for (Order o : unpaidOrders) {
-            if (o.getOrderDetails() != null && !o.getOrderDetails().isEmpty()) {
-                OrderDetail d = o.getOrderDetails().get(0);
-                if (d.getApplyDate() != null) {
-                    // Cột mốc hủy = Ngày đến trừ đi 1 ngày
-                    LocalDate deadline = d.getApplyDate().minusDays(1);
-                    
-                    // Nếu hôm nay đã chạm mốc deadline (trước 1 ngày) hoặc lố qua deadline
-                    if (!LocalDate.now().isBefore(deadline)) {
-                        o.setStatus("CANCELLED");
-                        orderRepository.save(o);
-
-                        // Hoàn lại Slot / Số phòng đã bị giam
-                        Service svc = d.getService();
-                        if (svc != null) {
-                            if ("HOTEL".equals(svc.getServiceType()) && svc.getAvailableRooms() != null) {
-                                svc.setAvailableRooms(svc.getAvailableRooms() + d.getQuantity());
-                            } else if ("TOUR".equals(svc.getServiceType()) && svc.getAvailableTrips() != null) {
-                                svc.setAvailableTrips(svc.getAvailableTrips() + 1);
-                            }
-                            serviceRepository.save(svc);
-                        }
-
-                        sendNotification(o.getUser(), "Hệ thống tự động hủy đơn #" + o.getId() + " do chưa được thanh toán/xác nhận trước 1 ngày.");
-                        if (svc != null && svc.getAgency() != null && svc.getAgency().getUser() != null) {
-                            sendNotification(svc.getAgency().getUser(), "Hệ thống tự động hủy đơn #" + o.getId() + " do khách chưa thanh toán kịp.");
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // ĐÃ XÓA: Chức năng tự hủy đơn chưa thanh toán đã được chuyển cho Staff xử lý thủ công.
+    // Staff có quyền Hủy đơn PENDING / AWAITING_PAYMENT bất cứ lúc nào qua giao diện.
+    // Chỉ các đơn TỚI HẠN SỬ DỤNG mới bị hệ thống tự động xử lý.
 
     private void sendNotification(User user, String message) {
         if (user == null) return;

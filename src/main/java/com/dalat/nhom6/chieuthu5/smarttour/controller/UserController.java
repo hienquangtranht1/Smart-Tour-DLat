@@ -51,7 +51,13 @@ public class UserController {
     public ResponseEntity<?> getMe(HttpServletRequest request) {
         User u = getUserFromSession(request);
         if (u == null) return ResponseEntity.status(401).build();
-        return ResponseEntity.ok(Map.of("username", u.getUsername(), "email", u.getEmail()));
+        
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("username", u.getUsername());
+        result.put("email", u.getEmail());
+        result.put("fullName", u.getFullName() != null && !u.getFullName().isEmpty() ? u.getFullName() : u.getUsername());
+        
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/services")
@@ -86,6 +92,39 @@ public class UserController {
         }).collect(Collectors.toList());
 
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/services/{id}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> getServiceById(@PathVariable("id") Integer id) {
+        Service s = serviceRepository.findById(id).orElse(null);
+        if (s == null || s.getIsApproved() == null || !s.getIsApproved() || s.getIsActive() == null || !s.getIsActive()) {
+            return ResponseEntity.status(404).body(Map.of("error", "Không tìm thấy dịch vụ"));
+        }
+
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", s.getId());
+        map.put("serviceName", s.getServiceName());
+        map.put("serviceType", s.getServiceType());
+        map.put("salePrice", s.getSalePrice());
+        map.put("originalPrice", s.getOriginalPrice() != null ? s.getOriginalPrice() : s.getSalePrice());
+        map.put("description", s.getDescription() != null ? s.getDescription() : "");
+        map.put("imageUrl", s.getImageUrl() != null ? s.getImageUrl() : "https://via.placeholder.com/1200x400");
+        map.put("agencyName", s.getAgency() != null ? s.getAgency().getAgencyName() : "");
+        map.put("maxPeople", s.getMaxPeople());
+        if ("TOUR".equals(s.getServiceType())) {
+            map.put("durationDays", s.getDurationDays());
+            map.put("transportation", s.getTransportation());
+        } else {
+            map.put("openingTime", s.getOpeningTime());
+            map.put("closingTime", s.getClosingTime());
+            if ("HOTEL".equals(s.getServiceType())) {
+                map.put("availableRooms", s.getAvailableRooms() != null ? s.getAvailableRooms() : 0);
+            }
+        }
+        map.put("mapPoints", s.getMapPoints());
+
+        return ResponseEntity.ok(map);
     }
 
     @PostMapping("/book/{serviceId}")
@@ -124,7 +163,7 @@ public class UserController {
         }
 
         LocalTime bookingTime = null;
-        if (!"TOUR".equals(svc.getServiceType())) {
+        if (!"TOUR".equals(svc.getServiceType()) && !"HOTEL".equals(svc.getServiceType())) {
             if (bookingTimeStr != null && !bookingTimeStr.isBlank()) {
                 try {
                     bookingTime = LocalTime.parse(bookingTimeStr);

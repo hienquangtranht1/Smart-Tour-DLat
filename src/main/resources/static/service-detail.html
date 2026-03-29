@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi tiết dịch vụ | Smart Tour</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    
+    <style>
+        .detail-hero {
+            position: relative;
+            height: 400px;
+            overflow: hidden;
+            border-radius: 16px;
+            margin-bottom: 2rem;
+            margin-top: 1rem;
+        }
+        .detail-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .detail-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to top, rgba(15,23,42,0.95), transparent);
+            display: flex;
+            align-items: flex-end;
+            padding: 2rem;
+        }
+        .detail-info {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+        
+        .review-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .reviewer-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .reviewer-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid var(--primary);
+        }
+        .stars {
+            color: #fbbf24;
+        }
+        
+        @media (max-width: 768px) {
+            .detail-info {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="top-navbar-layout">
+    <nav class="top-navbar">
+        <div class="top-navbar-brand">
+            <a href="user.html" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-arrow-left text-primary"></i>
+                <h2 class="text-gradient" style="font-size:1.1rem; margin:0">Quay lại</h2>
+            </a>
+        </div>
+        <div class="top-nav-links">
+            <div class="user-dropdown" onclick="document.getElementById('userMenu').classList.toggle('show')">
+                <i class="fas fa-user-circle text-xl text-primary"></i>
+                <span id="userDisplayName">Khách Du Lịch ▼</span>
+                <div id="userMenu" class="user-dropdown-menu">
+                    <a href="user.html#billing" class="nav-link"><i class="fas fa-file-invoice-dollar"></i> Đơn hàng & Hóa đơn</a>
+                    <a href="profile.html" class="nav-link"><i class="fas fa-user-circle"></i> Hồ sơ cá nhân</a>
+                    <a href="index.html" class="nav-link" style="color:#f43f5e"><i class="fas fa-sign-out-alt"></i> Đăng xuất</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <main class="main-content-top" style="max-width: 1200px; margin: 0 auto;">
+        <div id="serviceDetailContainer">
+            <div style="text-align:center; padding: 4rem;">
+                <i class="fas fa-spinner fa-spin text-primary text-3xl"></i>
+                <p class="mt-4">Đang tải thông tin dịch vụ...</p>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- Modal Đặt Dịch Vụ - Sẽ inject từ JS nếu người dùng bấm đặt -->
+<div id="bookingModal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+    <!-- Nội dung sẽ được tạo tự động bởi JS -->
+</div>
+
+<!-- Toast UI -->
+<script src="js/main.js"></script>
+<script src="js/service-detail.js"></script>
+</body>
+</html>

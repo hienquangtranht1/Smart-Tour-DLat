@@ -6,6 +6,8 @@
     <title>Smart Tour Đà Lạt | Đăng Nhập</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         .login-wrapper {
             min-height: 100vh;
@@ -18,21 +20,18 @@
             background-size: cover;
             background-position: center;
         }
-
         .login-card {
             width: 100%;
             max-width: 450px;
             padding: 3rem;
             text-align: center;
         }
-
         .role-selector {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 1rem;
             margin: 2rem 0;
         }
-
         .role-btn {
             background: #ffffff;
             border: 1px solid #e2e8f0;
@@ -46,16 +45,51 @@
             align-items: center;
             gap: 0.5rem;
         }
-
         .role-btn:hover, .role-btn.active {
             background: rgba(99, 102, 241, 0.2);
             border-color: var(--primary);
             color: white;
             transform: translateY(-2px);
         }
-
         .role-btn i { font-size: 1.5rem; }
         .role-btn span { font-size: 0.8rem; font-weight: 600; }
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1.25rem 0;
+            color: #94a3b8;
+            font-size: 0.8rem;
+        }
+        .divider::before, .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #e2e8f0;
+        }
+        .btn-google {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1e293b;
+            cursor: pointer;
+            transition: all 0.25s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .btn-google:hover {
+            border-color: #4285F4;
+            box-shadow: 0 4px 16px rgba(66,133,244,0.2);
+            transform: translateY(-1px);
+        }
+        .btn-google img { width: 20px; height: 20px; }
     </style>
 </head>
 <body>
@@ -65,7 +99,7 @@
             <div style="margin-bottom: 2rem;">
                 <i class="fas fa-leaf text-4xl mb-4" style="color: var(--secondary)"></i>
                 <h1 class="text-2xl mb-2">Smart Tour <span class="text-gradient">Đà Lạt</span></h1>
-                <p class="text-sm">Hệ thống Thiết kế Lịch trình AI & Đặt tour Thông Minh</p>
+                <p class="text-sm">Hệ thống Thiết kế Lịch trình AI &amp; Đặt tour Thông Minh</p>
             </div>
 
             <div class="role-selector">
@@ -84,6 +118,15 @@
             </div>
 
             <div id="loginSection">
+                <!-- Nút Google — chỉ hiện cho role USER -->
+                <div id="googleLoginSection">
+                    <button class="btn-google" onclick="triggerGoogleSignIn()">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                        Đăng nhập bằng Google
+                    </button>
+                    <div class="divider">hoặc đăng nhập bằng tài khoản</div>
+                </div>
+
                 <form id="loginForm" class="flex-col gap-4 text-left" onsubmit="handleLogin(event)">
                     <div class="flex-col gap-2">
                         <label class="text-sm" style="color:var(--text-main); font-weight:600">Tài khoản</label>
@@ -93,7 +136,10 @@
                         <label class="text-sm" style="color:var(--text-main); font-weight:600">Mật khẩu</label>
                         <input type="password" id="logPassword" class="input-glass" style="color:#1e293b;background:#f8fafc;border:1px solid #cbd5e1" placeholder="••••••••" required>
                     </div>
-                    <button type="submit" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">
+                    <div style="text-align:right; margin-top:-0.5rem">
+                        <a href="forgot-password.html" style="font-size:0.82rem;color:#6366f1;text-decoration:none">Quên mật khẩu?</a>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="margin-top: 0.5rem; width: 100%;">
                         Đăng Nhập Hệ Thống <i class="fas fa-arrow-right ml-2"></i>
                     </button>
                 </form>
@@ -105,6 +151,13 @@
         </div>
     </div>
 
+    <!-- Hidden Google One Tap trigger -->
+    <div id="g_id_onload"
+         data-client_id="333317668887-ri2ob5beobmtpto486sg6a61nevu6hrv.apps.googleusercontent.com"
+         data-callback="handleGoogleCredential"
+         data-auto_prompt="false">
+    </div>
+
     <script src="js/main.js"></script>
     <script>
         let currentRole = 'user';
@@ -113,11 +166,45 @@
             currentRole = role;
             document.querySelectorAll('.role-btn').forEach(btn => btn.classList.remove('active'));
             element.classList.add('active');
+            // Chỉ cho phép Google Sign-In với role USER
+            document.getElementById('googleLoginSection').style.display = (role === 'user') ? 'block' : 'none';
+        }
+
+        function triggerGoogleSignIn() {
+            if (typeof google === 'undefined') {
+                alert('Chưa tải được Google Sign-In. Vui lòng kiểm tra kết nối Internet!');
+                return;
+            }
+            google.accounts.id.initialize({
+                client_id: '333317668887-ri2ob5beobmtpto486sg6a61nevu6hrv.apps.googleusercontent.com',
+                callback: handleGoogleCredential,
+                ux_mode: 'popup'
+            });
+            google.accounts.id.prompt();
+        }
+
+        async function handleGoogleCredential(response) {
+            const credential = response.credential;
+            try {
+                const res = await fetch('/api/auth/google', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'credential=' + encodeURIComponent(credential)
+                });
+                const data = await res.json();
+                if (res.ok && data.status === 'success') {
+                    window.location.href = data.redirect;
+                } else {
+                    alert(data.message || 'Đăng nhập Google thất bại!');
+                }
+            } catch(e) {
+                alert('Lỗi kết nối máy chủ!');
+            }
         }
 
         async function handleLogin(e) {
             e.preventDefault();
-            const btn = e.target.querySelector('button');
+            const btn = e.target.querySelector('button[type="submit"]');
             const originBtn = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xác thực...';
             btn.style.opacity = '0.8';
@@ -129,7 +216,7 @@
                 const response = await fetch('/api/auth/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: `username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+                    body: 'username=' + encodeURIComponent(username) + '&password=' + encodeURIComponent(password)
                 });
                 const data = await response.json();
                 

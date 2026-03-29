@@ -292,8 +292,9 @@ function renderServicesGrid(data) {
         const tagColor = s.type === 'HOTEL'
             ? 'background:rgba(52,211,153,.2);color:#34d399;'
             : 'background:rgba(129,140,248,.2);color:#818cf8;';
-        const imgHtml = s.imageUrl
-            ? `<img src="${s.imageUrl}" class="service-img" onerror="this.onerror=null; this.src='https://picsum.photos/seed/${s.id}/400/300';" style="object-fit: cover; width: 100%; height: 200px; border-radius: 12px 12px 0 0;" alt="${s.name}">`
+        const safeUrl = (s.imageUrl && (s.imageUrl.startsWith('http') || s.imageUrl.startsWith('/'))) ? s.imageUrl : `https://picsum.photos/seed/${s.id}/400/300`;
+        const imgHtml = s.imageUrl 
+            ? `<img src="${safeUrl}" class="service-img" onerror="this.onerror=null; this.src='https://picsum.photos/seed/${s.id}/400/300';" style="object-fit: cover; width: 100%; height: 200px; border-radius: 12px 12px 0 0;" alt="${s.name}">`
             : `<div class="service-img" style="display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(52,211,153,.1));border-radius:12px 12px 0 0; height: 200px;"><i class="fas fa-image" style="font-size:3rem;color:rgba(129,140,248,.5)"></i></div>`;
         grid.innerHTML += `
         <div class="service-card glass-panel" style="position:relative">
@@ -615,145 +616,7 @@ const bookingDays = isHotel ? (parseInt(document.getElementById('bookDays').valu
 
 let detailMap;
 function showServiceDetail(id) {
-    const s = (window._servicesData || []).find(x => x.id === id);
-    if (!s) return;
-    
-    // Logic trạng thái hoạt động:
-    let statusBadge = '';
-    if (s.type === 'HOTEL') {
-        const avail = s.availableRooms || 0;
-        statusBadge = avail > 0 
-            ? `<div style="margin-top:0.5rem"><span style="background:rgba(16,185,129,0.2);color:#34d399;padding:4px 8px;border-radius:4px;font-size:0.8rem;font-weight:bold;"><i class="fas fa-check-circle"></i> Còn ${avail} phòng trống</span></div>`
-            : `<div style="margin-top:0.5rem"><span style="background:rgba(244,63,94,0.2);color:#f43f5e;padding:4px 8px;border-radius:4px;font-size:0.8rem;font-weight:bold;"><i class="fas fa-times-circle"></i> Đã Hết Phòng</span></div>`;
-    } else if (s.openingTime && s.closingTime) {
-        const now = new Date();
-        const currentMins = now.getHours() * 60 + now.getMinutes();
-        const openParts = s.openingTime.split(':');
-        const closeParts = s.closingTime.split(':');
-        if (openParts.length === 2 && closeParts.length === 2) {
-            const openMins = parseInt(openParts[0]) * 60 + parseInt(openParts[1]);
-            const closeMins = parseInt(closeParts[0]) * 60 + parseInt(closeParts[1]);
-            const isOpen = currentMins >= openMins && currentMins <= closeMins;
-            statusBadge = isOpen
-                ? `<div style="margin-top:0.5rem"><span style="background:rgba(16,185,129,0.2);color:#34d399;padding:4px 8px;border-radius:4px;font-size:0.8rem;font-weight:bold;"><i class="fas fa-door-open"></i> Đang mở cửa (đến ${s.closingTime})</span></div>`
-                : `<div style="margin-top:0.5rem"><span style="background:rgba(244,63,94,0.2);color:#f43f5e;padding:4px 8px;border-radius:4px;font-size:0.8rem;font-weight:bold;"><i class="fas fa-door-closed"></i> Đã đóng cửa (Mở lúc ${s.openingTime})</span></div>`;
-        }
-    }
-
-    const tourMeta = s.type === 'TOUR' ? `
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin:1rem 0;padding:1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;">
-            <div><span class="text-muted text-sm d-block">Giới hạn khách:</span> <b>${s.maxPeople || 'Vô hạn'} người / chuyến</b></div>
-            <div>
-                <span class="text-muted text-sm d-block">Số chuyến mở bán lúc này:</span> 
-                ${(s.availableTrips !== null && s.availableTrips !== undefined) ? 
-                    (s.availableTrips > 0 ? `<b style="color:#10b981">${s.availableTrips} Chuyến đang mở</b>` : `<b style="color:#f43f5e">Tạm hết chuyến mở bán</b>`) 
-                    : '<b>Luôn nhận khách</b>'}
-            </div>
-            <div><span class="text-muted text-sm d-block">Lịch trình:</span> <b>${s.durationDays || '?'} ngày</b></div>
-            <div><span class="text-muted text-sm d-block">Phương tiện:</span> <b>${s.transportation || 'Tự túc'}</b></div>
-        </div>
-    ` : (statusBadge);
-
-    document.getElementById('service-modal-content').innerHTML = `
-        <div style="display:flex;gap:1.5rem;align-items:flex-start">
-            <img src="${s.imageUrl}" style="width:300px;height:220px;border-radius:16px;object-fit:cover" onerror="this.src='https://picsum.photos/seed/${s.id}/400/300'">
-            <div style="flex:1">
-                <h2 style="margin-bottom:.5rem;color:#818cf8">${s.name}</h2>
-                <span class="type-badge" style="background:rgba(129,140,248,.2);color:#818cf8">${s.type}</span>
-                <span style="font-size:.85rem;color:var(--text-muted);margin-left:.75rem"><i class="fas fa-store"></i> ${s.agencyName}</span>
-                ${tourMeta}
-                <p style="margin-top:1rem;font-size:.9rem;color:var(--text-main);line-height:1.6">${s.description}</p>
-                <div style="margin-top:1.5rem;display:flex;justify-content:space-between;align-items:center;padding-top:1rem;border-top:1px solid #e2e8f0">
-                    <div>
-                        <span class="text-muted" style="font-size:.8rem;display:block">Giá trọn gói</span>
-                        <span class="price-tag" style="font-size:1.6rem">${new Intl.NumberFormat('vi-VN', {style:'currency',currency:'VND'}).format(s.price)}</span>
-                    </div>
-                    <button class="btn btn-success" style="padding:.8rem 2rem;font-size:1rem" onclick="bookService(${s.id}, this)">
-                        <i class="fas fa-shopping-cart"></i> Đặt Dịch Vụ Này
-                    </button>
-                </div>
-            </div>
-        </div>
-        <!-- Bản đồ Lộ trình -->
-        <h4 style="margin-top:2rem;margin-bottom:.75rem"><i class="fas fa-map-marked-alt text-primary"></i> Bản đồ Tuyến Đường</h4>
-        <div id="detail-map" style="width:100%;height:300px;border-radius:12px;overflow:hidden"></div>
-    `;
-    
-    document.getElementById('service-modal').style.display = 'flex';
-
-    // Vẽ bản đồ
-    setTimeout(() => {
-        if (!detailMap) {
-            detailMap = L.map('detail-map').setView([11.94, 108.45], 13);
-            L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi&gl=VN', { attribution: 'Bản đồ Du lịch Đà Lạt © Smart Tour System'}).addTo(detailMap);
-        } else {
-            detailMap.invalidateSize();
-            detailMap.eachLayer(l => { if (!l._url) detailMap.removeLayer(l) }); // Xóa marker/polyline cũ, giữ nguyên base layer
-        }
-
-        if (s.mapPoints) {
-            const arr = s.mapPoints.split('|').filter(x=>x).map(p => {
-                const parts = p.split(';');
-                const ll = parts[0].split(',');
-                return { lat: parseFloat(ll[0]), lng: parseFloat(ll[1]), name: parts[1] || 'Điểm dừng', imgUrl: parts[2] || '', time: parts[3] || '' };
-            });
-
-            if (arr.length > 0) {
-                if (arr.length === 1) {
-                    L.marker([arr[0].lat, arr[0].lng]).addTo(detailMap).bindPopup(`<b>${arr[0].name}</b>`).openPopup();
-                    detailMap.setView([arr[0].lat, arr[0].lng], 15);
-                } else {
-                    let totalDist = 0;
-                    const latLngs = arr.map(p => [p.lat, p.lng]);
-                    
-                    arr.forEach((p, i) => {
-                        let label = `<div style="text-align:center"><b>${i + 1}. ${p.name}</b>`;
-                        if (i === 0) label = `<div style="text-align:center">🚩 Bắt đầu: <b>${p.name}</b>`;
-                        else if (i === arr.length - 1) label = `<div style="text-align:center">🏁 Kết thúc: <b>${p.name}</b>`;
-                        
-                        if (p.imgUrl) {
-                            label += `<br/><img src="${p.imgUrl}" style="width:140px;height:90px;object-fit:cover;border-radius:6px;margin-top:6px;box-shadow:0 2px 4px rgba(0,0,0,.2)">`;
-                        }
-                        if (p.time) {
-                            label += `<br/><span style="color:#f59e0b;font-size:11px;font-weight:bold;margin-top:4px;display:inline-block">⏰ Thời gian: ${p.time}</span>`;
-                        }
-                        label += `</div>`;
-                        L.marker([p.lat, p.lng]).addTo(detailMap).bindPopup(label);
-                    });
-
-                    for (let i = 0; i < arr.length - 1; i++) {
-                        const dist = L.latLng(arr[i].lat, arr[i].lng).distanceTo(L.latLng(arr[i+1].lat, arr[i+1].lng));
-                        totalDist += dist;
-                        
-                        // Chấm label km lên chính giữa đường đứt nét
-                        const midLat = (arr[i].lat + arr[i+1].lat) / 2;
-                        const midLng = (arr[i].lng + arr[i+1].lng) / 2;
-                        const dStr = dist > 1000 ? (dist/1000).toFixed(1) + ' km' : Math.round(dist) + ' m';
-                        L.marker([midLat, midLng], {
-                            icon: L.divIcon({
-                                className: 'dist-label-icon',
-                                html: `<div style="background:#fff;color:#f43f5e;font-size:10px;padding:2px 6px;border-radius:4px;border:1px solid #f43f5e;font-weight:bold;white-space:nowrap;box-shadow:0 2px 4px rgba(0,0,0,0.2);transform:translate(-50%,-50%)">${dStr}</div>`,
-                                iconSize: [0, 0]
-                            }),
-                            interactive: false
-                        }).addTo(detailMap);
-                    }
-                    
-                    const distText = totalDist > 1000 ? (totalDist/1000).toFixed(1) + ' km' : Math.round(totalDist) + ' m';
-                    
-                    const line = L.polyline(latLngs, {color:'#f43f5e', weight:4, dashArray:'10'}).addTo(detailMap);
-                    detailMap.fitBounds(line.getBounds(), {padding:[30,30]});
-                    
-                    // Show distance text
-                    const distEl = document.createElement('div');
-                    distEl.innerHTML = `<i class="fas fa-route"></i> Tổng quãng đường bay/chạy: <b style="color:#34d399">${distText}</b>`;
-                    distEl.style.marginTop = '0.5rem';
-                    distEl.style.marginBottom = '1rem';
-                    document.getElementById('detail-map').insertAdjacentElement('beforebegin', distEl);
-                }
-            }
-        }
-    }, 200);
+    window.location.href = 'service-detail.html?id=' + id;
 }
 
 // ── 8. WEBSOCKET NHẬN THÔNG BÁO VÀ KHỞI ĐỘNG ─────────────
@@ -859,9 +722,10 @@ function initExplorerMap(data) {
 
         const priceStr = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(s.price);
 
+        const safeThumb = (s.imageUrl && (s.imageUrl.startsWith('http') || s.imageUrl.startsWith('/'))) ? s.imageUrl : `https://picsum.photos/seed/${s.id}/200/100`;
         const html = `
             <div style="font-family:'Inter',sans-serif;width:200px">
-                <img src="${s.imageUrl}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:8px" onerror="this.src='https://picsum.photos/seed/${s.id}/200/100'">
+                <img src="${safeThumb}" style="width:100%;height:100px;object-fit:cover;border-radius:8px;margin-bottom:8px" onerror="this.src='https://picsum.photos/seed/${s.id}/200/100'">
                 <h4 style="margin:0;font-size:14px;color:#1e293b">${s.name}</h4>
                 <div style="font-size:12px;color:#64748b;margin:4px 0">${s.type} • ${s.agencyName}</div>
                 <div style="font-size:14px;font-weight:bold;color:#f43f5e;margin-bottom:8px">${priceStr}</div>
@@ -884,7 +748,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (res.ok) {
             const user = await res.json();
             const displayName = document.getElementById('userDisplayName');
-            if (displayName) displayName.innerText = user.username + ' (Khách Hàng) ▼';
+            if (displayName) displayName.innerText = (user.fullName || user.username) + ' (Khách Hàng) ▼';
             connectWebSocket(user.username);
         }
     } catch(e) { console.warn("User profile load failed", e); }
