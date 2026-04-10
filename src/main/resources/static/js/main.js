@@ -72,3 +72,35 @@ function showNotification(msg) {
         setTimeout(() => notif.remove(), 500);
     }, 3000);
 }
+
+// Hàm đánh dấu chủ quyền Quần đảo Hoàng Sa và Trường Sa trên tất cả các instance Leaflet Map
+window.addVietnamSovereignty = function(map) {
+    if (!map || typeof L === 'undefined') return;
+    
+    // Quần đảo Hoàng Sa (16.4, 112.0)
+    const hsIcon = L.divIcon({
+        className: 'vn-sovereignty-label',
+        html: '<div style="color:#dc2626;font-weight:800;text-transform:uppercase;text-shadow:1px 1px 2px #fff, -1px -1px 2px #fff, 1px -1px 2px #fff, -1px 1px 2px #fff, 0px 0px 4px rgba(255,255,255,0.8);font-size:11px;white-space:nowrap;letter-spacing:0.5px;">⭐ Quần đảo Hoàng Sa (Việt Nam)</div>',
+        iconSize: [200, 20],
+        iconAnchor: [100, 10]
+    });
+    
+    // Quần đảo Trường Sa (10.0, 114.0)
+    const tsIcon = L.divIcon({
+        className: 'vn-sovereignty-label',
+        html: '<div style="color:#dc2626;font-weight:800;text-transform:uppercase;text-shadow:1px 1px 2px #fff, -1px -1px 2px #fff, 1px -1px 2px #fff, -1px 1px 2px #fff, 0px 0px 4px rgba(255,255,255,0.8);font-size:11px;white-space:nowrap;letter-spacing:0.5px;">⭐ Quần đảo Trường Sa (Việt Nam)</div>',
+        iconSize: [200, 20],
+        iconAnchor: [100, 10]
+    });
+
+    L.marker([16.4, 112.0], {icon: hsIcon, interactive: false, zIndexOffset: 1000}).addTo(map);
+    L.marker([10.0, 114.0], {icon: tsIcon, interactive: false, zIndexOffset: 1000}).addTo(map);
+};
+
+// ── Hàm đăng xuất toàn cục (GET Redirect) ──
+window.doLogoutUser = async function(e) {
+    if (e) e.preventDefault();
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/api/auth/logout';
+};

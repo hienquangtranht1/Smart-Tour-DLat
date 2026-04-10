@@ -48,9 +48,7 @@
                 <a href="#" class="nav-link" data-target="revenue">
                     <i class="fas fa-chart-line"></i> Doanh Thu & Hoa Hồng
                 </a>
-                <a href="#" class="nav-link" data-target="locations">
-                    <i class="fas fa-map-pin"></i> Hỗ trợ Địa điểm (AI)
-                </a>
+
 
                 <a href="#" class="nav-link" data-target="notifications" id="btnNotifications"
                     style="color:#fcd34d; position:relative;">
@@ -63,16 +61,20 @@
                 <a href="profile.html" class="nav-link" style="color:#818cf8; margin-bottom:0.5rem">
                     <i class="fas fa-user-circle"></i> Hồ sơ doanh nghiệp
                 </a>
-                <a href="index.html" class="nav-link" style="color:#f43f5e">
+                <a href="#" class="nav-link" style="color:#f43f5e" onclick="doLogoutUser(event)">
                     <i class="fas fa-sign-out-alt"></i> Đăng xuất
                 </a>
             </div>
         </aside>
 
-        <!-- ── MAIN CONTENT ───────────────────────────────────── -->
         <main class="main-content">
             <div class="header-top">
-                <h2 class="text-2xl">🏪 Staff Dashboard – Đại Lý Du Lịch</h2>
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('show-sidebar')">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h2 class="text-2xl">🏪 Staff Dashboard</h2>
+                </div>
             </div>
 
             <!-- TAB 1: QUẢN LÝ DỊCH VỤ -->
@@ -318,43 +320,6 @@
                 </div>
             </div>
 
-            <!-- TAB 3: HỖ TRỢ ĐỊA ĐIỂM (AI LEARNING) -->
-            <div id="locations" class="tab-content animate-fade-in" style="display:none">
-                <div class="glass-panel" style="padding:2rem;margin-bottom:1.5rem">
-                    <h3 style="margin-bottom:.5rem"><i class="fas fa-map-pin text-accent"></i> Thêm Điểm Vui Chơi Mới
-                        cho AI Học</h3>
-                    <p class="text-muted" style="font-size:.85rem;margin-bottom:1.2rem">
-                        Chấm tọa độ trực tiếp trên bản đồ. AI sẽ sử dụng dữ liệu này để gợi ý lịch trình phù hợp hơn cho
-                        Khách.
-                    </p>
-                    <form id="locationForm"
-                        style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;align-items:end">
-                        <div class="flex-col gap-2">
-                            <label class="text-sm">Tên địa điểm <span style="color:#f43f5e">*</span></label>
-                            <input type="text" id="locName" class="input-glass"
-                                placeholder="VD: Quán Cafe Mây Trên Đỉnh" required>
-                        </div>
-                        <div class="flex-col gap-2">
-                            <label class="text-sm">Toạ độ GPS (tự điền khi chấm)</label>
-                            <input type="text" id="locCoords" class="input-glass" placeholder="11.940419, 108.458313"
-                                readonly>
-                        </div>
-                        <div class="flex-col gap-2">
-                            <label class="text-sm">Ảnh Minh Họa</label>
-                            <input type="file" id="locImage" class="input-glass" accept="image/*">
-                        </div>
-                        <div style="grid-column: span 3;">
-                            <button type="submit" class="btn btn-primary" style="width:100%">
-                                <i class="fas fa-save"></i> Lưu Địa Điểm
-                            </button>
-                        </div>
-                    </form>
-                </div>
-                <div class="glass-panel" style="padding:1rem">
-                    <div id="osm-map" style="width:100%;height:500px;border-radius:12px;overflow:hidden"></div>
-                </div>
-            </div>
-
 
             <!-- TAB: Màn hình Thông báo -->
             <div id="notifications" class="tab-content animate-fade-in" style="display:none">
@@ -381,9 +346,23 @@
         style="position:fixed;bottom:1.5rem;right:1.5rem;padding:.9rem 1.5rem;border-radius:10px;color:#fff;font-size:.875rem;font-weight:600;transform:translateY(100px);opacity:0;transition:all .35s cubic-bezier(.16,1,.3,1);z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;align-items:center;gap:.5rem;min-width:280px;pointer-events:none">
     </div>
 
+    <script>
+        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                 document.querySelector('.sidebar').classList.remove('show-sidebar');
+            });
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/main.js"></script>
     <script src="js/staff.js"></script>
+    <script>
+        window.addEventListener('pageshow', async function(event) {
+            try {
+                const res = await fetch('/api/auth/profile?t=' + Date.now());
+                if (!res.ok) { window.location.href = 'login.html'; }
+            } catch (e) { window.location.href = 'login.html'; }
+        });
+    </script>
 </body>
-
 </html>

@@ -103,6 +103,17 @@ public class AuthController {
                 return ResponseEntity.status(403).body(Map.of("status", "error", "message", "Tài khoản đã bị khóa bởi Admin!"));
             }
 
+            if (Boolean.TRUE.equals(user.getIsDeleted())) {
+                return ResponseEntity.status(403).body(Map.of("status", "error", "message", "Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa!"));
+            }
+
+            if (user.getRole() == Role.STAFF) {
+                Optional<Agency> agencyOpt = agencyRepository.findByUserId(user.getId());
+                if (agencyOpt.isPresent() && Boolean.TRUE.equals(agencyOpt.get().getIsDeleted())) {
+                    return ResponseEntity.status(403).body(Map.of("status", "error", "message", "Đại lý của bạn đã bị ngừng hoạt động hoặc xóa!"));
+                }
+            }
+
             // Tạo session
             HttpSession session = request.getSession(true);
             session.setAttribute("USER_ID", user.getId());
@@ -113,7 +124,7 @@ public class AuthController {
                     "role", user.getRole().name(),
                     "fullName", user.getFullName() != null ? user.getFullName() : user.getUsername(),
                     "avatar", user.getAvatarUrl() != null ? user.getAvatarUrl() : "",
-                    "redirect", "/" + user.getRole().name().toLowerCase() + ".html"
+                    "redirect", user.getRole().name().equals("USER") ? "/index.html" : "/" + user.getRole().name().toLowerCase() + ".html"
             ));
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("status", "error", "message", "Lỗi xác thực Google: " + e.getMessage()));
@@ -124,6 +135,7 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestParam("username") String username,
                                    @RequestParam("password") String password,
+                                   @RequestParam(value = "role", required = false) String role,
                                    HttpServletRequest request) {
         Optional<User> userOpt = userRepository.findByUsername(username.trim());
         if (userOpt.isEmpty()) {
@@ -153,16 +165,33 @@ public class AuthController {
             return ResponseEntity.status(403).body(Map.of("status","error","message","Tài khoản đã bị khóa!"));
         }
 
+        if (Boolean.TRUE.equals(user.getIsDeleted())) {
+            return ResponseEntity.status(403).body(Map.of("status","error","message","Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa!"));
+        }
+
         Role userRoleEnum = user.getRole();
         if (userRoleEnum == null) {
             userRoleEnum = Role.USER;
         }
+        
+        // Kiểm tra đúng vai trò được chọn trên form
+        if (role != null && !role.trim().isEmpty() && !role.equalsIgnoreCase(userRoleEnum.name())) {
+            return ResponseEntity.status(401).body(Map.of("status", "error", "message", "Tài khoản không thuộc phân quyền này!"));
+        }
+
         String roleStr = userRoleEnum.name();
 
-        // Nếu STAFF, kiểm tra đại lý đã được duyệt chưa
+        // Nếu STAFF, kiểm tra đại lý đã được duyệt chưa hoặc bị khóa/xóa không
         if (userRoleEnum == Role.STAFF) {
             Optional<Agency> agencyOpt = agencyRepository.findByUserId(user.getId());
-            if (agencyOpt.isEmpty() || !Boolean.TRUE.equals(agencyOpt.get().getIsApproved())) {
+            if (agencyOpt.isEmpty()) {
+                return ResponseEntity.status(403).body(Map.of("status","error","message","Tài khoản Đại lý không tồn tại!"));
+            }
+            Agency agency = agencyOpt.get();
+            if (Boolean.TRUE.equals(agency.getIsDeleted())) {
+                return ResponseEntity.status(403).body(Map.of("status","error","message","Đại lý của bạn đã bị ngừng hoạt động hoặc xóa!"));
+            }
+            if (!Boolean.TRUE.equals(agency.getIsApproved())) {
                 return ResponseEntity.status(403).body(Map.of("status","error","message","Tài khoản Đại lý của bạn đang chờ Admin phê duyệt!"));
             }
         }
@@ -174,14 +203,21 @@ public class AuthController {
         return ResponseEntity.ok(Map.of(
             "status", "success",
             "role", roleStr,
-            "redirect", "/" + roleStr.toLowerCase() + ".html"
+            "redirect", roleStr.equals("USER") ? "/index.html" : "/" + roleStr.toLowerCase() + ".html"
         ));
     }
 
     // ── 2. GỬI OTP VỀ GMAIL ─────────────────────────────────
     @PostMapping("/send-otp")
-    public ResponseEntity<?> sendOtp(@RequestParam("email") String email) {
+    public ResponseEntity<?> sendOtp(@RequestParam("email") String email,
+                                     @RequestParam(value = "username", required = false) String username) {
         email = email.trim().toLowerCase();
+        // Kiểm tra username trùng nếu có gửi kèm
+        if (username != null && !username.trim().isEmpty()) {
+            if (userRepository.existsByUsername(username.trim())) {
+                return ResponseEntity.badRequest().body(Map.of("status","error","message","Tên đăng nhập '" + username.trim() + "' đã được sử dụng!"));
+            }
+        }
         if (userRepository.existsByEmail(email)) {
             return ResponseEntity.badRequest().body(Map.of("status","error","message","Email này đã được đăng ký!"));
         }
@@ -200,6 +236,45 @@ public class AuthController {
         boolean valid = otpService.verify(email.trim().toLowerCase(), otp.trim());
         if (valid) return ResponseEntity.ok(Map.of("status","ok","message","OTP hợp lệ!"));
         return ResponseEntity.badRequest().body(Map.of("status","error","message","Mã OTP không đúng hoặc đã hết hạn!"));
+    }
+
+    // ── 3.1. GỬI OTP CHO TÀI KHOẢN ĐÃ TỒN TẠI (QUÊN MK / ĐỔI MK) ──
+    @PostMapping("/send-otp-existing")
+    public ResponseEntity<?> sendOtpExisting(@RequestParam("email") String email) {
+        email = email.trim().toLowerCase();
+        if (!userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Email này chưa được đăng ký trong hệ thống!"));
+        }
+        try {
+            String otp = otpService.generateAndStore(email);
+            emailService.sendOtpEmail(email, otp);
+            return ResponseEntity.ok(Map.of("status","ok","message","Đã gửi mã xác nhận đến email " + email + ". Vui lòng kiểm tra hộp thư!"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("status","error","message","Gửi email thất bại: " + e.getMessage()));
+        }
+    }
+
+    // ── 3.2. KHÔI PHỤC MẬT KHẨU (QUÊN MK) ───────────────────
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<?> resetPassword(
+            @RequestParam("email") String email,
+            @RequestParam("otp") String otp,
+            @RequestParam("newPassword") String newPassword) {
+        
+        email = email.trim().toLowerCase();
+        if (!otpService.verify(email, otp.trim())) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Mã OTP không đúng hoặc đã hết hạn!"));
+        }
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Không tìm thấy tài khoản!"));
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        
+        return ResponseEntity.ok(Map.of("status","ok","message","Khôi phục mật khẩu thành công! Bạn có thể đăng nhập ngay."));
     }
 
     // ── 4. ĐĂNG KÝ ──────────────────────────────────────────
@@ -319,11 +394,13 @@ public class AuthController {
         return ResponseEntity.ok(result);
     }
 
-    @PutMapping("/profile")
+    @org.springframework.transaction.annotation.Transactional
+    @PostMapping("/profile")
     public ResponseEntity<?> updateProfile(
             @RequestParam(value = "fullName", required = false) String fullName,
             @RequestParam(value = "phone", required = false) String phone,
             @RequestParam(value = "avatarUrl", required = false) String avatarUrl,
+            @RequestParam(value = "avatarFile", required = false) org.springframework.web.multipart.MultipartFile avatarFile,
             @RequestParam(value = "agencyName", required = false) String agencyName,
             @RequestParam(value = "taxCode", required = false) String taxCode,
             @RequestParam(value = "address", required = false) String address,
@@ -341,7 +418,31 @@ public class AuthController {
 
         if (fullName != null) user.setFullName(fullName);
         if (phone != null) user.setPhone(phone);
-        if (avatarUrl != null) user.setAvatarUrl(avatarUrl);
+        
+        if (avatarFile != null && !avatarFile.isEmpty()) {
+            try {
+                String originalName = avatarFile.getOriginalFilename();
+                if (originalName != null && !originalName.toLowerCase().matches(".*\\.(jpg|jpeg|png)$")) {
+                    throw new RuntimeException("Chỉ cho phép tải lên Ảnh (.jpg, .png)");
+                }
+                String uploadDir = "uploads/";
+                java.nio.file.Path uploadPath = java.nio.file.Paths.get(uploadDir);
+                if (!java.nio.file.Files.exists(uploadPath)) { java.nio.file.Files.createDirectories(uploadPath); }
+                String ext = (originalName != null && originalName.contains(".")) ? originalName.substring(originalName.lastIndexOf(".")) : ".jpg";
+                String newFileName = "avatar_" + System.currentTimeMillis() + ext;
+                java.nio.file.Path filePath = uploadPath.resolve(newFileName);
+                java.nio.file.Files.copy(avatarFile.getInputStream(), filePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                user.setAvatarUrl("/uploads/" + newFileName);
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error", 
+                    "message", "Lỗi tải ảnh lên: " + (e.getMessage() != null ? e.getMessage() : "Quyền ghi file trên VPS hoặc định dạng không đúng")
+                ));
+            }
+        } else if (avatarUrl != null && !avatarUrl.isEmpty()) {
+            user.setAvatarUrl(avatarUrl);
+        }
+        
         userRepository.save(user);
 
         // Cập nhật thông tin Agency nếu là Staff
@@ -358,7 +459,11 @@ public class AuthController {
             });
         }
 
-        return ResponseEntity.ok(Map.of("status","ok","message","Cập nhật hồ sơ thành công!"));
+        return ResponseEntity.ok(Map.of(
+            "status", "ok",
+            "message", "Cập nhật hồ sơ thành công!",
+            "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
+        ));
     }
 
     // ── 6. ĐỔI MẬT KHẨU ────────────────────────────────────
@@ -366,6 +471,7 @@ public class AuthController {
     public ResponseEntity<?> changePassword(
             @RequestParam("oldPassword") String oldPassword,
             @RequestParam("newPassword") String newPassword,
+            @RequestParam("otp") String otp,
             HttpServletRequest request) {
 
         Integer userId = getUserIdFromSession(request);
@@ -373,6 +479,11 @@ public class AuthController {
 
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) return ResponseEntity.status(404).body(Map.of("error","Không tìm thấy tài khoản!"));
+
+        // Xác thực mã OTP trước khi cho đổi
+        if (!otpService.verify(user.getEmail(), otp.trim())) {
+            return ResponseEntity.badRequest().body(Map.of("error","Mã OTP không đúng hoặc đã hết hạn!"));
+        }
 
         boolean oldPassOk = passwordEncoder.matches(oldPassword, user.getPassword());
         if (!oldPassOk && !user.getPassword().equals(oldPassword)) {
@@ -384,12 +495,24 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("status","ok","message","Đổi mật khẩu thành công!"));
     }
 
-    // ── 7. ĐĂNG XUẤT ────────────────────────────────────────
+    // ── 7. ĐĂNG XUẤT (hỗ trợ cả GET lẫn POST để tránh lỗi 405) ──
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session != null) session.invalidate();
         return ResponseEntity.ok(Map.of("status","ok","message","Đăng xuất thành công!"));
+    }
+
+    @GetMapping("/logout")
+    public void logoutGet(HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        HttpSession session = request.getSession(false);
+        if (session != null) session.invalidate();
+        // Xóa cookie JSESSIONID
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("JSESSIONID", "");
+        cookie.setMaxAge(0);
+        cookie.setPath("/");
+        response.addCookie(cookie);
+        response.sendRedirect("/login.html");
     }
 
     // ── HELPER ────────────────────────────────────────────────

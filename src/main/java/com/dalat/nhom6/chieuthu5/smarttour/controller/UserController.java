@@ -56,6 +56,7 @@ public class UserController {
         result.put("username", u.getUsername());
         result.put("email", u.getEmail());
         result.put("fullName", u.getFullName() != null && !u.getFullName().isEmpty() ? u.getFullName() : u.getUsername());
+        result.put("role", u.getRole() != null ? u.getRole().name() : "USER");
         
         return ResponseEntity.ok(result);
     }
@@ -64,7 +65,7 @@ public class UserController {
     @Transactional(readOnly = true)
     public ResponseEntity<?> getApprovedServices() {
         List<Service> approvedServices = serviceRepository.findAll().stream()
-                .filter(s -> s.getIsApproved() != null && s.getIsApproved() && s.getIsActive() != null && s.getIsActive())
+                .filter(s -> s.getIsApproved() != null && s.getIsApproved() && s.getIsActive() != null && s.getIsActive() && !Boolean.TRUE.equals(s.getIsDeleted()))
                 .collect(Collectors.toList());
 
         List<Map<String, Object>> result = approvedServices.stream().map(s -> {

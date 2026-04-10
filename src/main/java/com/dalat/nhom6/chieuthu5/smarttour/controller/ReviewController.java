@@ -88,6 +88,7 @@ public class ReviewController {
         List<Map<String, Object>> result = new ArrayList<>();
         
         for (Review r : reviews) {
+            if (Boolean.TRUE.equals(r.getIsDeleted())) continue;
             Map<String, Object> map = new LinkedHashMap<>();
             map.put("id", r.getId());
             map.put("rating", r.getRating());
@@ -119,6 +120,7 @@ public class ReviewController {
             map.put("content", r.getContent());
             map.put("type", r.getType());
             map.put("status", r.getStatus());
+            map.put("isDeleted", r.getIsDeleted() != null ? r.getIsDeleted() : false);
             map.put("createdAt", r.getCreatedAt().toString());
             map.put("userName", r.getUser().getFullName() != null ? r.getUser().getFullName() : r.getUser().getUsername());
             map.put("serviceName", r.getService().getServiceName());
@@ -158,8 +160,10 @@ public class ReviewController {
             return ResponseEntity.status(403).body(Map.of("status", "error", "message", "Không có quyền thực hiện!"));
         }
 
-        if (reviewRepository.existsById(id)) {
-            reviewRepository.deleteById(id);
+        Review review = reviewRepository.findById(id).orElse(null);
+        if (review != null) {
+            review.setIsDeleted(true);
+            reviewRepository.save(review);
             return ResponseEntity.ok(Map.of("status", "success", "message", "Đã xóa đánh giá/báo cáo."));
         }
         return ResponseEntity.status(404).body(Map.of("status", "error", "message", "Không tìm thấy đánh giá/báo cáo."));

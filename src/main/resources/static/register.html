@@ -183,11 +183,13 @@
 
     async function sendOtp() {
         const email = document.getElementById('regEmail').value.trim();
+        const username = document.getElementById('regUsername').value.trim();
+        if (!username) { showToast('Vui lòng nhập tên đăng nhập trước!', true); document.getElementById('regUsername').focus(); return; }
         if (!email) { showToast('Vui lòng nhập email!', true); return; }
         const btn = document.getElementById('btnSendOtp');
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         try {
-            const res = await fetch('/api/auth/send-otp', { method: 'POST', body: new URLSearchParams({ email }) });
+            const res = await fetch('/api/auth/send-otp', { method: 'POST', body: new URLSearchParams({ email, username }) });
             const d = await res.json();
             showToast(d.message, !res.ok);
             if (res.ok) { 

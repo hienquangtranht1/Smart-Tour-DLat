@@ -59,6 +59,9 @@ public class User {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Agency agency;
 
+    @Column(name = "is_deleted")
+    private Boolean isDeleted;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -66,5 +69,6 @@ public class User {
         if (this.role == null) this.role = Role.USER;
         if (this.isEmailVerified == null) this.isEmailVerified = false;
         if (this.isActive == null) this.isActive = true;
+        if (this.isDeleted == null) this.isDeleted = false;
     }
 }

@@ -17,10 +17,12 @@ function showToast(msg, isError = false) {
 
 // ── 2. ĐĂNG XUẤT ─────────────────────────────────────────
 function logout(e) {
-    e.preventDefault();
+    if(e) e.preventDefault();
     document.cookie = 'JSESSIONID=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-    showToast('Đã đăng xuất!');
-    setTimeout(() => location.href = 'index.html', 1000);
+    localStorage.clear();
+    sessionStorage.clear();
+    showToast('Đang đăng xuất...');
+    setTimeout(() => { window.location.href = '/api/auth/logout'; }, 200);
 }
 
 // ── 3. LÀM MỚI TẤT CẢ ───────────────────────────────────
@@ -85,9 +87,14 @@ async function fetchServices(isPreview = false) {
         }
         data.forEach(s => {
             const price = fmtVND(s.price);
-            const badge = s.isApproved
-                ? (s.isActive ? '<span class="badge badge-success">✔ Đã Duyệt</span>' : '<span class="badge" style="background:#fef2f2;color:#ef4444">⏸ Đã Ẩn</span>')
-                : '<span class="badge badge-warn">⏳ Chờ Duyệt</span>';
+            let badge = '';
+            if (s.isDeleted) {
+                badge = '<span class="badge" style="background:#fee2e2;color:#ef4444"><i class="fas fa-trash"></i> Đã Xóa</span>';
+            } else if (s.isApproved) {
+                badge = s.isActive ? '<span class="badge badge-success">✔ Đã Duyệt</span>' : '<span class="badge" style="background:#fef2f2;color:#ef4444">⏸ Đã Ẩn</span>';
+            } else {
+                badge = '<span class="badge badge-warn">⏳ Chờ Duyệt</span>';
+            }
             const toggleBtn = s.isApproved 
                 ? (s.isActive ? `<button class="btn btn-sm" style="background:#fef2f2;color:#ef4444;border:1px solid #fca5a5" onclick="toggleService(${s.id})" title="Ẩn hiển thị"><i class="fas fa-eye-slash"></i></button>` : `<button class="btn btn-success btn-sm" onclick="toggleService(${s.id})" title="Bật hiển thị"><i class="fas fa-eye"></i></button>`)
                 : '';
@@ -173,6 +180,7 @@ function showServiceDetail(id) {
     setTimeout(() => {
         if (!adminDetailMap) {
             adminDetailMap = L.map('admin-map-container').setView([11.94, 108.45], 13);
+            if (typeof addVietnamSovereignty === 'function') addVietnamSovereignty(adminDetailMap);
             L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi&gl=VN').addTo(adminDetailMap);
         } else {
             adminDetailMap.invalidateSize();
@@ -273,9 +281,14 @@ async function fetchAgencies(isPreview = false) {
             return;
         }
         data.forEach(a => {
-            const badge = a.isApproved
-                ? '<span class="badge badge-success">✔ Đã Duyệt</span>'
-                : '<span class="badge badge-warn">⏳ Chờ Duyệt</span>';
+            let badge = '';
+            if (a.isDeleted) {
+                badge = '<span class="badge" style="background:#fee2e2;color:#ef4444"><i class="fas fa-trash"></i> Đã Xóa</span>';
+            } else if (a.isApproved) {
+                badge = '<span class="badge badge-success">✔ Đã Duyệt</span>';
+            } else {
+                badge = '<span class="badge badge-warn">⏳ Chờ Duyệt</span>';
+            }
             const actions = a.isApproved
                 ? `<div class="action-group">
                     <button class="btn btn-sm view-btn" onclick="showAgencyDetail(${a.id})"><i class="fas fa-eye"></i> Xem</button>
@@ -359,9 +372,20 @@ async function fetchUsers() {
         data.forEach(u => {
             const dateStr = u.createdAt ? new Date(u.createdAt).toLocaleDateString('vi-VN') : '—';
             const verifyHtml = u.isEmailVerified ? '<i class="fas fa-check-circle" style="color:#34d399" title="Đã xác minh email"></i>' : '';
-            const statusBadge = u.isActive 
-                ? '<span class="badge badge-success">Bình thường</span>' 
-                : '<span class="badge" style="background:#fee2e2;color:#ef4444">Đã Khóa</span>';
+            
+            let statusBadge = '';
+            if (u.isDeleted) {
+               statusBadge = '<span class="badge" style="background:#fee2e2;color:#ef4444"><i class="fas fa-trash"></i> Đã Xóa</span>';
+            } else if (u.isActive) {
+               statusBadge = '<span class="badge badge-success">Hoạt động</span>';
+            } else {
+               statusBadge = '<span class="badge" style="background:#fef3c7;color:#d97706"><i class="fas fa-lock"></i> Đã Khóa</span>';
+            }
+            
+            const roleBadge = u.role === 'STAFF' 
+                ? '<span class="badge" style="background:#e0e7ff;color:#4f46e5"><i class="fas fa-user-tie"></i> Đại lý</span>'
+                : '<span class="badge" style="background:#f1f5f9;color:#64748b"><i class="fas fa-user"></i> Khách hàng</span>';
+
             const toggleBtn = u.isActive
                 ? `<button class="btn btn-sm" style="background:#fef2f2;color:#ef4444;border:1px solid #fca5a5" onclick="toggleUser(${u.id})" title="Khóa tài khoản"><i class="fas fa-lock"></i></button>`
                 : `<button class="btn btn-success btn-sm" onclick="toggleUser(${u.id})" title="Mở khóa tài khoản"><i class="fas fa-unlock"></i></button>`;
@@ -378,6 +402,7 @@ async function fetchUsers() {
                     </div>
                 </td>
                 <td>${u.email} ${verifyHtml}</td>
+                <td>${roleBadge}</td>
                 <td>${dateStr}</td>
                 <td>${statusBadge}</td>
                 <td style="text-align:right">

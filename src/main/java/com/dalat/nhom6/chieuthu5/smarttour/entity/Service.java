@@ -48,6 +48,9 @@ public class Service {
     @Column(name = "is_active")
     private Boolean isActive;
 
+    @Column(name = "is_deleted")
+    private Boolean isDeleted;
+
     // ----- Tour Specific -----
     @Column(name = "tour_schedule", columnDefinition = "TEXT")
     private String tourSchedule;
@@ -97,5 +100,6 @@ public class Service {
         this.createdAt = LocalDateTime.now();
         if (this.isApproved == null) this.isApproved = false;
         if (this.isActive == null) this.isActive = true;
+        if (this.isDeleted == null) this.isDeleted = false;
     }
 }

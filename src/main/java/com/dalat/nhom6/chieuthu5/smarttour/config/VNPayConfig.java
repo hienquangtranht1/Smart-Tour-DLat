@@ -9,12 +9,15 @@ public class VNPayConfig {
     
     public static String getIpAddress(jakarta.servlet.http.HttpServletRequest request) {
         String ipAddress = request.getHeader("X-FORWARDED-FOR");
-        if (ipAddress == null) {
+        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getRemoteAddr();
         }
-        if ("0:0:0:0:0:0:0:1".equals(ipAddress)) {
+        
+        // VNPay chỉ hỗ trợ định dạng IPv4. Nếu gặp IPv6, quy về localhost IPv4
+        if (ipAddress != null && ipAddress.contains(":")) {
             ipAddress = "127.0.0.1";
         }
+        
         return ipAddress;
     }
 

@@ -42,12 +42,22 @@ public class DatabaseSeeder implements CommandLineRunner {
             System.out.println("====== LƯU Ý DB: Không thể Alter table users. Nếu dùng H2 in-memory thì an toàn, nếu MySQL cần đảm bảo VARCHAR > 60.");
         }
         
-        // Update password đúng chuẩn BCrypt
-        createOrUpdateUser("admin", passwordEncoder.encode("123456"), "admin@smarttour.com", Role.ADMIN);
-        Agency staffAgency = createOrUpdateUserAndGetAgency("staff", passwordEncoder.encode("123456"), "agency@smarttour.com", Role.STAFF);
-        createOrUpdateUser("demo", passwordEncoder.encode("123"), "guest@smarttour.com", Role.USER);
+        // VÔ HIỆU HÓA CÁC TÀI KHOẢN CŨ DỄ ĐOÁN Xưa (Chống người khác mò ra)
+        String[] oldAccounts = {"admin", "staff", "demo"};
+        for (String oldAcc : oldAccounts) {
+            userRepository.findByUsername(oldAcc).ifPresent(u -> {
+                u.setIsLocked(true);
+                u.setPassword(passwordEncoder.encode(java.util.UUID.randomUUID().toString()));
+                userRepository.save(u);
+            });
+        }
+
+        // TẠO TÀI KHOẢN MỚI CỰC KHÓ ĐOÁN
+        createOrUpdateUser("adm_x9qA2", passwordEncoder.encode("SmartTour_a@99"), "admin@smarttour.com", Role.ADMIN);
+        Agency staffAgency = createOrUpdateUserAndGetAgency("stf_m3kL5", passwordEncoder.encode("SmartTour_s@88"), "agency@smarttour.com", Role.STAFF);
+        createOrUpdateUser("usr_v7bW1", passwordEncoder.encode("SmartTour_u@77"), "guest@smarttour.com", Role.USER);
             
-        System.out.println("====== ĐÃ RESET MẬT KHẨU (Đã Mã Hóa BCrypt): admin (123456) | staff (123456) | demo (123)");
+        System.out.println("====== TÀI KHOẢN BẢO MẬT MỚI: adm_x9qA2 (SmartTour_a@99) | stf_m3kL5 (SmartTour_s@88) | usr_v7bW1 (SmartTour_u@77) ======");
 
         // Tạo 10 dịch vụ mẫu nếu chưa có dịch vụ nào
         if (serviceRepository.count() == 0 && staffAgency != null) {
@@ -64,17 +74,23 @@ public class DatabaseSeeder implements CommandLineRunner {
     }
 
     private Agency createOrUpdateUserAndGetAgency(String username, String encodedPassword, String email, Role role) {
-        User user = userRepository.findByUsername(username).orElse(
-            User.builder()
-                .username(username)
-                .email(email)
-                .role(role)
-                .isLocked(false)
-                .createdAt(LocalDateTime.now())
-                .build()
-        );
+        // Tìm user theo username HOẶC email để tránh lỗi Duplicate Entry khi đổi username/email tài khoản cũ
+        User user = userRepository.findByUsername(username)
+                .or(() -> userRepository.findByEmail(email))
+                .orElseGet(() -> User.builder()
+                        .createdAt(LocalDateTime.now())
+                        .build());
         
+        // Cập nhật thông tin để khớp với bộ dữ liệu Seed mới
+        user.setUsername(username);
+        user.setEmail(email);
+        user.setRole(role);
         user.setPassword(encodedPassword);
+        user.setIsLocked(false); // Đảm bảo tài khoản seed không bị khóa
+        user.setIsActive(true);
+        user.setIsDeleted(false);
+        user.setIsEmailVerified(true);
+        
         user = userRepository.save(user);
 
         if (role == Role.STAFF) {
@@ -86,6 +102,7 @@ public class DatabaseSeeder implements CommandLineRunner {
                     .businessLicense("GP-" + System.currentTimeMillis())
                     .address("Đà Lạt, Lâm Đồng")
                     .isApproved(true)
+                    .isDeleted(false)
                     .build();
                 return agencyRepository.save(agency);
             }

@@ -51,7 +51,9 @@ public class StaffController {
         if (session == null) return null;
         Integer userId = (Integer) session.getAttribute("USER_ID");
         if (userId == null) return null;
-        return userRepository.findById(userId).orElse(null);
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null || Boolean.TRUE.equals(user.getIsDeleted())) return null;
+        return user;
     }
 
     private Agency getAgencyFromSession(HttpServletRequest request) {
@@ -59,7 +61,12 @@ public class StaffController {
         if (session == null) return null;
         Integer userId = (Integer) session.getAttribute("USER_ID");
         if (userId == null) return null;
-        return agencyRepository.findByUserId(userId).orElse(null);
+        Agency agency = agencyRepository.findByUserId(userId).orElse(null);
+        if (agency == null || Boolean.TRUE.equals(agency.getIsDeleted()) || 
+            (agency.getUser() != null && Boolean.TRUE.equals(agency.getUser().getIsDeleted()))) {
+            return null;
+        }
+        return agency;
     }
 
     @GetMapping("/me")
@@ -79,6 +86,7 @@ public class StaffController {
         if (agency == null) return ResponseEntity.status(403).build();
         
         List<Map<String, Object>> result = serviceRepository.findByAgencyId(agency.getId()).stream()
+            .filter(s -> !Boolean.TRUE.equals(s.getIsDeleted()))
             .map(s -> {
                 Map<String, Object> map = new java.util.HashMap<>();
                 map.put("id", s.getId());
@@ -333,11 +341,9 @@ public class StaffController {
                     "Đơn đặt #" + order.getId() + " đã bị đại lý hủy!");
             } catch (Exception ignored) {}
 
-            // Xóa CommissionRecord liên quan trước (tránh FK constraint)
-            commissionRepository.deleteByOrderId(orderId);
-
-            // Xóa Order (sẽ cascade xóa luôn OrderDetail do CascadeType.ALL)
-            orderRepository.deleteById(orderId);
+            // Đổi trạng thái thay vì xóa cứng (Soft Cancel)
+            order.setStatus("CANCELLED");
+            orderRepository.save(order);
 
             return ResponseEntity.ok(Map.of("message", "Đã hủy đơn hàng & hoàn trả lại slot trống thành công!"));
         }
@@ -368,12 +374,15 @@ public class StaffController {
         try {
             String filename = "https://images.unsplash.com/photo-1542314831-c6a4d27160c9"; // Default image
             if (image != null && !image.isEmpty()) {
+                String originalName = image.getOriginalFilename();
+                if (originalName != null && !originalName.toLowerCase().matches(".*\\.(jpg|jpeg|png)$")) {
+                    throw new RuntimeException("Lỗi: Hé thống chặn file lạ! Chỉ cho phép tải lên Ảnh (.jpg, .png)");
+                }
                 String uploadDir = "uploads/";
                 java.nio.file.Path uploadPath = java.nio.file.Paths.get(uploadDir);
                 if (!java.nio.file.Files.exists(uploadPath)) {
                     java.nio.file.Files.createDirectories(uploadPath);
                 }
-                String originalName = image.getOriginalFilename();
                 String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf(".")) : ".jpg";
                 String newFileName = System.currentTimeMillis() + ext;
                 java.nio.file.Path filePath = uploadPath.resolve(newFileName);
@@ -473,12 +482,15 @@ public class StaffController {
             svc.setAvailableRooms(availableRooms); // Fix: Cập nhật số lượng phòng
 
             if (image != null && !image.isEmpty()) {
+                String originalName = image.getOriginalFilename();
+                if (originalName != null && !originalName.toLowerCase().matches(".*\\.(jpg|jpeg|png)$")) {
+                    throw new RuntimeException("Lỗi: Hé thống chặn file lạ! Chỉ cho phép tải lên Ảnh (.jpg, .png)");
+                }
                 String uploadDir = "uploads/";
                 java.nio.file.Path uploadPath = java.nio.file.Paths.get(uploadDir);
                 if (!java.nio.file.Files.exists(uploadPath)) {
                     java.nio.file.Files.createDirectories(uploadPath);
                 }
-                String originalName = image.getOriginalFilename();
                 String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf(".")) : ".jpg";
                 String newFileName = System.currentTimeMillis() + ext;
                 java.nio.file.Path filePath = uploadPath.resolve(newFileName);
@@ -521,10 +533,13 @@ public class StaffController {
     public ResponseEntity<?> uploadImage(@RequestParam("file") org.springframework.web.multipart.MultipartFile image) {
         try {
             if (image != null && !image.isEmpty()) {
+                String originalName = image.getOriginalFilename();
+                if (originalName != null && !originalName.toLowerCase().matches(".*\\.(jpg|jpeg|png)$")) {
+                    throw new RuntimeException("Lỗi: Hé thống chặn file lạ! Chỉ cho phép tải lên Ảnh (.jpg, .png)");
+                }
                 String uploadDir = "uploads/";
                 java.nio.file.Path uploadPath = java.nio.file.Paths.get(uploadDir);
                 if (!java.nio.file.Files.exists(uploadPath)) { java.nio.file.Files.createDirectories(uploadPath); }
-                String originalName = image.getOriginalFilename();
                 String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf(".")) : ".jpg";
                 String newFileName = "point_" + System.currentTimeMillis() + ext;
                 java.nio.file.Path filePath = uploadPath.resolve(newFileName);
@@ -548,12 +563,15 @@ public class StaffController {
         String imageUrl = null;
         if (image != null && !image.isEmpty()) {
             try {
+                String originalName = image.getOriginalFilename();
+                if (originalName != null && !originalName.toLowerCase().matches(".*\\.(jpg|jpeg|png)$")) {
+                    throw new RuntimeException("Lỗi: Hé thống chặn file lạ! Chỉ cho phép tải lên Ảnh (.jpg, .png)");
+                }
                 String uploadDir = "uploads/";
                 java.nio.file.Path uploadPath = java.nio.file.Paths.get(uploadDir);
                 if (!java.nio.file.Files.exists(uploadPath)) {
                     java.nio.file.Files.createDirectories(uploadPath);
                 }
-                String originalName = image.getOriginalFilename();
                 String ext = originalName.contains(".") ? originalName.substring(originalName.lastIndexOf(".")) : ".jpg";
                 String newFileName = "loc_" + System.currentTimeMillis() + ext;
                 java.nio.file.Path filePath = uploadPath.resolve(newFileName);

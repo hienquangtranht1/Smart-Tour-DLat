@@ -35,9 +35,6 @@ public class AdminController {
     private SystemConfigRepository configRepository;
 
     @Autowired
-    private OrderDetailRepository orderDetailRepository;
-
-    @Autowired
     private EmailService emailService;
 
     @Autowired
@@ -130,6 +127,7 @@ public class AdminController {
             map.put("price", s.getSalePrice() != null ? s.getSalePrice() : s.getOriginalPrice());
             map.put("isApproved", s.getIsApproved() != null ? s.getIsApproved() : false);
             map.put("isActive", s.getIsActive() != null ? s.getIsActive() : true);
+            map.put("isDeleted", s.getIsDeleted() != null ? s.getIsDeleted() : false);
             map.put("imageUrl", s.getImageUrl() != null ? s.getImageUrl() : "https://via.placeholder.com/150");
             
             map.put("description", s.getDescription());
@@ -184,24 +182,31 @@ public class AdminController {
     }
 
     /**
-     * Xóa Agency theo thứ tự đảm bảo không vi phạm FK:
-     * OrderDetail -> Service -> Agency
+     * Xóa mềm Agency và các Service của nó
      */
     @PostMapping("/agencies/{id}/reject")
     @Transactional
     public ResponseEntity<?> rejectAgency(@PathVariable("id") Integer id, HttpServletRequest request) {
         if (!isAdmin(request)) return ResponseEntity.status(403).build();
         try {
-            List<Service> services = serviceRepository.findByAgencyId(id);
-            // B1: Xóa OrderDetail của từng service
-            for (Service svc : services) {
-                orderDetailRepository.deleteByServiceId(svc.getId());
+            Agency a = agencyRepository.findById(id).orElse(null);
+            if (a != null) {
+                a.setIsDeleted(true);
+                agencyRepository.save(a);
+                
+                if (a.getUser() != null) {
+                    a.getUser().setIsDeleted(true);
+                    userRepository.save(a.getUser());
+                }
+
+                List<Service> services = serviceRepository.findByAgencyId(id);
+                for (Service svc : services) {
+                    svc.setIsDeleted(true);
+                }
+                serviceRepository.saveAll(services);
+                return ResponseEntity.ok(Map.of("status", "success"));
             }
-            // B2: Xóa tất cả Service (không có .flush() – để @Transactional tự commit)
-            serviceRepository.deleteAllInBatch(services);
-            // B3: Xóa Agency
-            agencyRepository.deleteById(id);
-            return ResponseEntity.ok(Map.of("status", "success"));
+            return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
@@ -213,11 +218,13 @@ public class AdminController {
     public ResponseEntity<?> rejectService(@PathVariable("id") Integer id, HttpServletRequest request) {
         if (!isAdmin(request)) return ResponseEntity.status(403).build();
         try {
-            // B1: Xóa OrderDetail liên kết trước (không .flush() – để @Transactional tự commit)
-            orderDetailRepository.deleteByServiceId(id);
-            // B2: Xóa Service – dùng deleteById sẽ tự flush + commit khi method kết thúc
-            serviceRepository.deleteById(id);
-            return ResponseEntity.ok(Map.of("status", "success"));
+            Service s = serviceRepository.findById(id).orElse(null);
+            if (s != null) {
+                s.setIsDeleted(true);
+                serviceRepository.save(s);
+                return ResponseEntity.ok(Map.of("status", "success"));
+            }
+            return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
@@ -264,6 +271,7 @@ public class AdminController {
                 m.put("website", a.getWebsite());
                 m.put("description", a.getDescription());
                 m.put("isApproved", a.getIsApproved());
+                m.put("isDeleted", a.getIsDeleted());
                 if (a.getUser() != null) {
                     m.put("username", a.getUser().getUsername());
                     m.put("email", a.getUser().getEmail());
@@ -289,6 +297,7 @@ public class AdminController {
                 m.put("taxCode", a.getTaxCode());
                 m.put("address", a.getAddress());
                 m.put("isApproved", a.getIsApproved());
+                m.put("isDeleted", a.getIsDeleted());
                 if (a.getUser() != null) {
                     m.put("username", a.getUser().getUsername());
                     m.put("email", a.getUser().getEmail());
@@ -299,12 +308,12 @@ public class AdminController {
         return ResponseEntity.ok(result);
     }
 
-    // ── DANH SÁCH TẤT CẢ KHÁCH HÀNG (USER) ─────────────────
+    // ── DANH SÁCH TẤT CẢ NGƯỜI DÙNG (USER & STAFF) ─────────────────
     @GetMapping("/users")
     public ResponseEntity<?> getAllUsers(HttpServletRequest request) {
         if (!isAdmin(request)) return ResponseEntity.status(403).build();
         List<Map<String, Object>> result = userRepository.findAll().stream()
-            .filter(u -> Role.USER.equals(u.getRole()))
+            .filter(u -> !Role.ADMIN.equals(u.getRole()))
             .map(u -> {
                 Map<String, Object> m = new java.util.LinkedHashMap<>();
                 m.put("id", u.getId());
@@ -312,8 +321,10 @@ public class AdminController {
                 m.put("email", u.getEmail());
                 m.put("fullName", u.getFullName());
                 m.put("phone", u.getPhone());
+                m.put("role", u.getRole().name());
                 m.put("isEmailVerified", u.getIsEmailVerified());
                 m.put("isActive", u.getIsActive() != null ? u.getIsActive() : true);
+                m.put("isDeleted", u.getIsDeleted() != null ? u.getIsDeleted() : false);
                 m.put("createdAt", u.getCreatedAt());
                 m.put("avatarUrl", u.getAvatarUrl());
                 return m;
@@ -345,13 +356,28 @@ public class AdminController {
         if (!isAdmin(request)) return ResponseEntity.status(403).build();
         try {
             User u = userRepository.findById(id).orElse(null);
-            if (u != null && Role.USER.equals(u.getRole())) {
-                // Xóa Order của user nếu có.
-                orderRepository.deleteByUserId(id);
-                userRepository.delete(u);
+            if (u != null && !Role.ADMIN.equals(u.getRole())) {
+                u.setIsDeleted(true);
+                userRepository.save(u);
+
+                if (Role.STAFF.equals(u.getRole())) {
+                    Agency a = agencyRepository.findByUserId(id).orElse(null);
+                    if (a != null) {
+                        a.setIsDeleted(true);
+                        agencyRepository.save(a);
+                        List<Service> services = serviceRepository.findByAgencyId(a.getId());
+                        if (services != null) {
+                            for (Service s : services) {
+                                s.setIsDeleted(true);
+                            }
+                            serviceRepository.saveAll(services);
+                        }
+                    }
+                }
+
                 return ResponseEntity.ok(Map.of("status", "success"));
             }
-            return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy User hoặc user không phải role Khách Hàng"));
+            return ResponseEntity.badRequest().body(Map.of("error", "Không tìm thấy người dùng hoặc không hợp lệ"));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(500).body(Map.of("error", "Lỗi DB: Không thể xoá User do dính khóa ngoại"));

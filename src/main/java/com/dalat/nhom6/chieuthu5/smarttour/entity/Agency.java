@@ -49,8 +49,12 @@ public class Agency {
     @Column(name = "is_approved")
     private Boolean isApproved;
 
+    @Column(name = "is_deleted")
+    private Boolean isDeleted;
+
     @PrePersist
     protected void onCreate() {
         if (this.isApproved == null) this.isApproved = false;
+        if (this.isDeleted == null) this.isDeleted = false;
     }
 }

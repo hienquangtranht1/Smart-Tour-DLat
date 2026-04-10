@@ -87,7 +87,7 @@ async function fetchInfo() {
         const res = await fetch('/api/staff/me');
         if (res.status === 401 || res.status === 403) {
             showToast('Phiên đăng nhập hết hạn!', true);
-            setTimeout(() => location.href = 'index.html', 1500);
+            setTimeout(() => location.href = 'login.html', 1500);
             return;
         }
         if (!res.ok) return;
@@ -393,7 +393,7 @@ function initServiceForm() {
                 fetchServices();
             } else if (res.status === 401 || res.status === 403) {
                 showToast('Phiên đăng nhập hết hạn!', true);
-                setTimeout(() => location.href = 'index.html', 1500);
+                setTimeout(() => location.href = 'login.html', 1500);
             } else {
                 const err = await res.text().catch(() => 'Lỗi không xác định');
                 showToast('❌ ' + err.substring(0, 100), true);
@@ -529,6 +529,7 @@ let serviceMapL, serviceMarkers = [], servicePolyline = null;
 function initServiceMap() {
     if (serviceMapL) { serviceMapL.invalidateSize(); return; }
     serviceMapL = L.map('service-map').setView([11.9404, 108.4583], 13);
+    if (typeof addVietnamSovereignty === 'function') addVietnamSovereignty(serviceMapL);
     L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi&gl=VN', {
         attribution: 'Smart Tour Bản đồ Chủ Quyền Việt Nam'
     }).addTo(serviceMapL);
@@ -624,6 +625,7 @@ let locMap, locMarker;
 function initLocMap() {
     if (locMap) { locMap.invalidateSize(); return; }
     locMap = L.map('osm-map').setView([11.9404, 108.4583], 13);
+    if (typeof addVietnamSovereignty === 'function') addVietnamSovereignty(locMap);
     L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi&gl=VN', {
         attribution: 'Smart Tour Bản đồ Chủ Quyền Việt Nam'
     }).addTo(locMap);

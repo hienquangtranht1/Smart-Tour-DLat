@@ -41,6 +41,7 @@ let userLocation = null; // Fix lỗi ReferenceError khi chưa xin quyền đị
 function initUserMap() {
     if (userMap) { userMap.invalidateSize(); return; }
     userMap = L.map('osm-map').setView([11.9404, 108.4583], 13);
+    if (typeof addVietnamSovereignty === 'function') addVietnamSovereignty(userMap);
     L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi&gl=VN', {
         attribution: 'Bản đồ Du lịch Đà Lạt © Smart Tour System'
     }).addTo(userMap);
@@ -59,6 +60,12 @@ function initUserMap() {
 // ── 4. AI LỊCH TRÌNH ─────────────────────────────────────
 async function handleAIGenerate(e) {
     e.preventDefault();
+    // Chặn khách vãng lai - yêu cầu đăng nhập
+    if (window.isGuest) {
+        showToast('🔒 Vui lòng đăng nhập để sử dụng tính năng Lịch trình AI!', true);
+        setTimeout(() => location.href = 'login.html', 1500);
+        return;
+    }
     const btn = document.getElementById('btnAIGenerate');
     const orig = btn.innerHTML;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> AI đang phân tích...';
@@ -125,36 +132,11 @@ function renderItinerary(days) {
 }
 
 function exportItineraryPDF() {
-    const element = document.getElementById('ai-result');
-    if (!element) return;
-
-    showToast('🖨️ Đang xuất file PDF Lịch Trình...');
-
-    // Thêm watermark tạm thời
-    const watermark = document.createElement('div');
-    watermark.id = '_pdf_header';
-    watermark.style.cssText = 'text-align:center;padding:10px 0 20px;border-bottom:2px solid #6366f1;margin-bottom:16px';
-    watermark.innerHTML = `
-        <h2 style="color:#6366f1;font-size:1.4rem;margin:0">🌄 Smart Tour Đà Lạt</h2>
-        <p style="color:#64748b;font-size:0.8rem;margin:4px 0 0">Lịch trình AI tạo ngày ${new Date().toLocaleDateString('vi-VN')}</p>
-    `;
-    const content = document.getElementById('ai-itinerary-content');
-    element.insertBefore(watermark, content);
-
-    const opt = {
-        margin:       [10, 12, 10, 12],
-        filename:     'SmartTour_Lichtrình_DaLat.pdf',
-        image:        { type: 'jpeg', quality: 0.95 },
-        html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#0f172a' },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
-
-    html2pdf().set(opt).from(element).save().then(() => {
-        // Xoá watermark sau khi xuất xong
-        const wm = document.getElementById('_pdf_header');
-        if (wm) wm.remove();
-        showToast('✅ Đã lưu PDF lịch trình thành công!');
-    });
+    // Focus the print window via CSS print media
+    showToast('🖨️ Đang mở chức năng In PDF Native...');
+    setTimeout(() => {
+        window.print();
+    }, 500);
 }
 
 
@@ -180,8 +162,15 @@ async function fetchServices() {
 
     try {
         const res = await fetch('/api/user/services');
-        if (!res.ok) { if (res.status === 401 || res.status === 403) location.href = 'index.html'; return; }
-        
+        // Guest mode: nếu API trả về 401, vẫn cho load trang nhưng ẩn nút đặt
+        if (res.status === 401 || res.status === 403) {
+            grid.innerHTML = '<div class="empty-msg"><i class="fas fa-lock"></i> Vui lòng <a href="login.html" style="color:#818cf8">đăng nhập</a> để xem danh sách dịch vụ.</div>';
+            return;
+        }
+        if (!res.ok) {
+            grid.innerHTML = '<div class="empty-msg">Lỗi tải dữ liệu từ máy chủ.</div>';
+            return;
+        }
         const data = await res.json();
         window._servicesData = data;
         applyFilters();
@@ -438,12 +427,12 @@ function showUserOrderDetail(encodedData) {
     modal.id = '_userOrderDetailModal';
     modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:1rem;backdrop-filter:blur(4px)';
     modal.innerHTML = `
-    <div style="background:#fff;border-radius:20px;padding:2.2rem;width:100%;max-width:450px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);position:relative">
-        <button onclick="document.getElementById('_userOrderDetailModal').remove()" style="position:absolute;top:15px;right:18px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#94a3b8">×</button>
+    <div id="invoiceContent" style="background:#fff;border-radius:20px;padding:2.2rem;width:100%;max-width:450px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);position:relative; margin:auto;">
+        <button id="invoiceCloseBtn" onclick="document.getElementById('_userOrderDetailModal').remove()" style="position:absolute;top:15px;right:18px;background:none;border:none;font-size:1.5rem;cursor:pointer;color:#94a3b8">×</button>
         <h3 style="margin-bottom:1.8rem;font-size:1.2rem;color:#1e293b;display:flex;align-items:center;gap:10px">
             <i class="fas fa-file-invoice" style="color:#6366f1"></i> Chi Tiết Đơn Hàng #${String(o.id).padStart(5,'0')}
         </h3>
-        <div style="border:1px solid #f1f5f9;border-radius:12px;overflow:hidden">
+        <div id="invoiceTableContainer" style="border:1px solid #f1f5f9;border-radius:12px;overflow:hidden">
             <table style="width:100%;border-collapse:collapse">
                 ${rows.map(([label, val], idx) => `
                 <tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'}">
@@ -452,12 +441,194 @@ function showUserOrderDetail(encodedData) {
                 </tr>`).join('')}
             </table>
         </div>
-        <div style="margin-top:2rem;display:flex;gap:.8rem">
+        <div id="invoiceActionButtons" style="margin-top:2rem;display:flex;gap:.8rem">
             <button onclick="document.getElementById('_userOrderDetailModal').remove()" style="flex:1;padding:10px;border:1.5px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer;font-weight:700;color:#64748b">Quay lại</button>
             ${o.status === 'AWAITING_PAYMENT' ? `<button onclick="payVnpay(${o.id}, ${o.totalAmount})" style="flex:1.5;padding:10px;border:none;border-radius:10px;background:#6366f1;color:#fff;cursor:pointer;font-weight:700"><i class="fas fa-credit-card"></i> Thanh toán ngay</button>` : ''}
+            ${['PAID', 'IN_PROGRESS', 'COMPLETED'].includes(o.status) ? `<button onclick="exportInvoicePdf('${encodedData}')" style="flex:1.5;padding:10px;border:none;border-radius:10px;background:#10b981;color:#fff;cursor:pointer;font-weight:700"><i class="fas fa-file-pdf"></i> Xuất Tải Hóa Đơn</button>` : ''}
         </div>
     </div>`;
     document.body.appendChild(modal);
+}
+
+function exportInvoicePdf(encodedData) {
+    const o = JSON.parse(decodeURIComponent(encodedData));
+    const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n || 0);
+
+    const statusLabels = {
+        PENDING: 'Đang Chờ Đại Lý Duyệt',
+        AWAITING_PAYMENT: 'Chờ Thanh Toán',
+        PAID: '✅ Đã Thanh Toán VNPAY',
+        IN_PROGRESS: 'Đang Diễn Ra',
+        COMPLETED: 'Đã Kết Thúc',
+        CANCELLED: 'Đã Hủy'
+    };
+
+    const rows = [
+        ['Dịch vụ', o.services || o.serviceName || '—'],
+        ['Loại hình', o.serviceType || '—'],
+        ['Khách hàng', document.getElementById('userDisplayName') ? document.getElementById('userDisplayName').innerText.replace(' ▼', '') : 'Khách Dịch Vụ'],
+        ['Ngày đến', o.bookingDate || '—'],
+        ['Giờ đến', o.bookingTime || '—'],
+        ['Ngày kết thúc', o.endDate || '—'],
+        [o.serviceType === 'HOTEL' ? 'Thời gian thuê' : 'Thời lượng', o.bookingDays ? `${o.bookingDays} ${o.serviceType === 'HOTEL' ? 'đêm' : 'ngày'}` : '—'],
+        ['Số lượng đặt', o.quantity ? `${o.quantity} ${o.serviceType === 'HOTEL' ? 'phòng' : 'người'}` : '—'],
+        ['Ngày tạo đơn', o.orderDate || new Date().toLocaleDateString('vi-VN')],
+    ];
+
+    const printHtml = `
+        <!DOCTYPE html>
+        <html lang="vi">
+        <head>
+            <meta charset="UTF-8">
+            <title>HoaDon_SmartTour_DON${o.id}</title>
+            <style>
+                body {
+                    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+                    background-color: #f1f5f9;
+                    margin: 0;
+                    padding: 40px;
+                    color: #1e293b;
+                }
+                .invoice-container {
+                    background: #fff;
+                    border-radius: 16px;
+                    max-width: 600px;
+                    margin: 0 auto;
+                    padding: 40px;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+                }
+                .header-container {
+                    text-align: center;
+                    margin-bottom: 30px;
+                }
+                .header-title {
+                    font-size: 1.6rem;
+                    color: #4f46e5;
+                    margin: 0 0 10px 0;
+                    text-transform: uppercase;
+                    font-weight: 800;
+                }
+                .header-subtitle {
+                    color: #64748b;
+                    font-size: 0.95rem;
+                    margin: 0;
+                    border-bottom: 2px dashed #e2e8f0;
+                    padding-bottom: 20px;
+                }
+                table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 20px;
+                    font-size: 0.95rem;
+                }
+                table th, table td {
+                    padding: 12px 15px;
+                    border-bottom: 1px solid #f8fafc;
+                }
+                table tr:nth-child(even) td {
+                    background-color: #f8fafc;
+                }
+                .label-col {
+                    width: 40%;
+                    color: #64748b;
+                    font-weight: 500;
+                    text-align: left;
+                }
+                .value-col {
+                    color: #0f172a;
+                    font-weight: 600;
+                    text-align: right;
+                }
+                .summary {
+                    border-top: 2px solid #e2e8f0;
+                    padding-top: 15px;
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 1.1rem;
+                    margin-bottom: 10px;
+                }
+                .summary-label { font-weight: 700; color: #1e293b; }
+                .summary-value { font-weight: 800; color: #f43f5e; font-size: 1.3rem; }
+                
+                .status-row {
+                    display: flex;
+                    justify-content: space-between;
+                    font-size: 1rem;
+                }
+                .status-val { color: #10b981; font-weight: 700; }
+                
+                .footer {
+                    margin-top: 40px;
+                    text-align: center;
+                    font-size: 0.85rem;
+                    color: #94a3b8;
+                    font-style: italic;
+                }
+                
+                @media print {
+                    /* Chỉnh chuẩn khổ in A4 */
+                    @page { margin: 15mm; }
+                    body { background: #fff; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .invoice-container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="invoice-container">
+                <div class="header-container">
+                    <h1 class="header-title">Smart Tour Đà Lạt</h1>
+                    <p class="header-subtitle">HÓA ĐƠN DỊCH VỤ - MÃ ĐƠN #${String(o.id).padStart(5,'0')}</p>
+                </div>
+                
+                <table>
+                    <tbody>
+                        ${rows.map(([label, val]) => `
+                        <tr>
+                            <td class="label-col">${label}</td>
+                            <td class="value-col">${val}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                
+                <div class="summary">
+                    <div class="summary-label">Tổng Thanh Toán:</div>
+                    <div class="summary-value">${fmt(o.totalAmount)}</div>
+                </div>
+                <div class="status-row">
+                    <div class="summary-label" style="font-weight: 500;">Trạng thái:</div>
+                    <div class="status-val">${statusLabels[o.status] || o.status}</div>
+                </div>
+                
+                <div class="footer">
+                    * Qúy khách vui lòng chọn "Lưu dưới dạng PDF" (Save as PDF) ở mục Máy In để xuất biên lai.<br>
+                    Cảm ơn quý khách đã tin dùng Smart Tour. Lập lúc: ${new Date().toLocaleString('vi-VN')}
+                </div>
+            </div>
+            <script>
+                // Mở cửa sổ in ngay khi load xong nội dung
+                window.onload = function() {
+                    window.print();
+                };
+            </script>
+        </body>
+        </html>
+    `;
+
+    // Mở trang HTML hóa đơn trong 1 cửa sổ mới ẩn và yêu cầu Browser In nó ra PDF
+    const printWin = window.open('', '_blank');
+    if (printWin) {
+        printWin.document.open();
+        printWin.document.write(printHtml);
+        printWin.document.close();
+        
+        const btnParams = document.activeElement;
+        if(btnParams && btnParams.tagName === 'BUTTON') {
+             btnParams.innerHTML = '<i class="fas fa-check"></i> Đã mở trình Xuất PDF';
+             setTimeout(() => { btnParams.innerHTML = '<i class="fas fa-file-pdf"></i> Xuất Tải Hóa Đơn'; }, 3000);
+        }
+    } else {
+        alert('Trình duyệt của bạn đang chặn mở Cửa sổ mới (Pop-up). Vui lòng cấp quyền cho Smart Tour!');
+    }
 }
 
 async function payVnpay(orderId, amount) {
@@ -477,7 +648,12 @@ async function payVnpay(orderId, amount) {
 }
 
 async function bookService(id, btn) {
-
+    // Chặn khách vãng lai - yêu cầu đăng nhập
+    if (window.isGuest) {
+        showToast('🔒 Vui lòng đăng nhập để đặt dịch vụ!', true);
+        setTimeout(() => location.href = 'login.html', 1500);
+        return;
+    }
     const s = (window._servicesData || []).find(x => x.id === id);
     if (!s) return;
 
@@ -692,8 +868,9 @@ function initExplorerMap(data) {
     
     if (!window.explorerMap) {
         window.explorerMap = L.map('osm-map').setView([11.940419, 108.458313], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap'
+        if (typeof addVietnamSovereignty === 'function') addVietnamSovereignty(window.explorerMap);
+        L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi&gl=VN', {
+            attribution: '&copy; Bản đồ Chủ Quyền Việt Nam (Google Maps Tiled)'
         }).addTo(window.explorerMap);
         explorerMapGroup = L.featureGroup().addTo(window.explorerMap);
 
@@ -742,29 +919,68 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log("User dashboard initializing...");
     initTabs();
     
-    // 1. Tải thông tin cá nhân & Websocket
+    // 1. Tải thông tin cá nhân & Kiểm tra trạng thái đăng nhập
     try {
         const res = await fetch('/api/user/me');
         if (res.ok) {
+            // === ĐÃ ĐĂNG NHẬP ===
+            window.isGuest = false;
             const user = await res.json();
+
+            // Nếu là Admin/Staff thì đá về đúng trang của họ (không ở trang khách vãng lai)
+            if (user.role === 'ADMIN') {
+                location.href = 'admin.html';
+                return;
+            } else if (user.role === 'STAFF') {
+                location.href = 'staff.html';
+                return;
+            }
+
+            // Hiện menu cá nhân, ẩn nút đăng nhập khách
+            document.querySelectorAll('.logged-in-only').forEach(el => el.style.display = '');
+            const guestBtn = document.getElementById('guestLoginBtn');
+            if (guestBtn) guestBtn.style.display = 'none';
+
             const displayName = document.getElementById('userDisplayName');
             if (displayName) displayName.innerText = (user.fullName || user.username) + ' (Khách Hàng) ▼';
-            connectWebSocket(user.username);
-        }
-    } catch(e) { console.warn("User profile load failed", e); }
 
-    // 2. Load thông báo
-    if (typeof loadUnreadNotifications === 'function') loadUnreadNotifications();
+            const greeting = document.getElementById('greetingUser');
+            if (greeting) greeting.innerText = 'Chào mừng, ' + (user.fullName || user.username) + '! 🌄';
+
+            connectWebSocket(user.username);
+
+            // Tải thông báo và đơn hàng (chỉ khi đã đăng nhập)
+            if (typeof loadUnreadNotifications === 'function') loadUnreadNotifications();
+            fetchMyOrders();
+        } else {
+            // === KHÁCH VÃNG LAI (GUEST MODE) ===
+            window.isGuest = true;
+            console.log('Guest mode: không có phiên đăng nhập.');
+
+            // Hiện nút đăng nhập, ẩn mọi thứ cá nhân
+            const guestBtn = document.getElementById('guestLoginBtn');
+            if (guestBtn) guestBtn.style.display = 'flex';
+
+            // Ẩn các phần tử chỉ dành cho thành viên
+            document.querySelectorAll('.logged-in-only').forEach(el => el.style.display = 'none');
+
+            const greeting = document.getElementById('greetingUser');
+            if (greeting) greeting.innerHTML = 'Chào mừng đến với Smart Tour Đà Lạt! 🌿 <a href="login.html" style="font-size:.8rem;color:#818cf8;margin-left:.5rem">Đăng nhập để đặt dịch vụ</a>';
+        }
+    } catch(e) {
+        // Lỗi mạng - vẫn hiển thị trang bình thường
+        window.isGuest = true;
+        console.warn('Không kết nối được server để kiểm tra đăng nhập:', e);
+        const guestBtn = document.getElementById('guestLoginBtn');
+        if (guestBtn) guestBtn.style.display = 'flex';
+    }
 
     // 3. Tự động tải dữ liệu cho tab active
     const activeTab = document.querySelector('.nav-link.active');
     if (activeTab) {
         const target = activeTab.getAttribute('data-target');
         if (target === 'booking') fetchServices();
-        if (target === 'ai-itinerary') { /* AI tab content is static until generate */ }
     }
-    // Luôn tải đơn hàng ngay khi vào trang (không chờ click tab)
-    fetchMyOrders();
 
     // 4. Các khởi tạo khác
     if (typeof initServiceForm === 'function') initServiceForm();
@@ -774,5 +990,5 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (window._servicesData) initExplorerMap(window._servicesData);
     });
 
-    console.log("User.js initialization complete.");
+    console.log('User.js initialization complete. isGuest =', window.isGuest);
 });

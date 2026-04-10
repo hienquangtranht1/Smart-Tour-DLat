@@ -80,9 +80,12 @@
 <div class="top-navbar-layout">
     <nav class="top-navbar">
         <div class="top-navbar-brand">
-            <a href="user.html" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
+            <button class="mobile-menu-btn" onclick="document.querySelector('.top-nav-links').classList.toggle('show-mobile')" style="margin-right:10px">
+                <i class="fas fa-bars"></i>
+            </button>
+            <a href="index.html" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 0.5rem;">
                 <i class="fas fa-arrow-left text-primary"></i>
-                <h2 class="text-gradient" style="font-size:1.1rem; margin:0">Quay lại</h2>
+                <h2 class="text-gradient" style="font-size:1.1rem; margin:0">Trang chủ</h2>
             </a>
         </div>
         <div class="top-nav-links">
@@ -114,6 +117,22 @@
 </div>
 
 <!-- Toast UI -->
+<script>
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.user-dropdown')) {
+            const menu = document.getElementById('userMenu');
+            if (menu) menu.classList.remove('show');
+        }
+    });
+
+    // Auto close mobile menu when clicking nav links
+    document.querySelectorAll('.top-nav-links .nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+             const mNav = document.querySelector('.top-nav-links');
+             if(mNav) mNav.classList.remove('show-mobile');
+        });
+    });
+</script>
 <script src="js/main.js"></script>
 <script src="js/service-detail.js"></script>
 </body>

@@ -52,7 +52,7 @@ public class AIGeneratorController {
         // 1. RAG Retrieve
         List<Location> allLocations = locationRepository.findAll();
         List<Service> allServices = serviceRepository.findAll().stream()
-                .filter(s -> s.getIsApproved() != null && s.getIsApproved())
+                .filter(s -> s.getIsApproved() != null && s.getIsApproved() && !Boolean.TRUE.equals(s.getIsDeleted()))
                 .collect(Collectors.toList());
 
         List<String> locNames = allLocations.stream().map(Location::getName).collect(Collectors.toList());
@@ -75,8 +75,8 @@ public class AIGeneratorController {
             arrival, departure, groupType, startLocation, pace, budget, transport, preferences, locNames, svcNames
         );
 
-        // Dùng gemini-flash-latest theo mẫu curl thành công của người dùng
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=" + geminiApiKey;
+        // Dùng gemini-2.5-flash theo API chuẩn của Google
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
         RestTemplate restTemplate = new RestTemplate();
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
@@ -106,6 +106,8 @@ public class AIGeneratorController {
             if (startIndex != -1 && endIndex != -1) {
                 jsonOutput = jsonOutput.substring(startIndex, endIndex + 1);
             }
+            
+            System.out.println("JSON AI trả về: " + jsonOutput);
             
             List<Map<String, Object>> itineraryObj = mapper.readValue(jsonOutput, List.class);
             return ResponseEntity.ok(Map.of(

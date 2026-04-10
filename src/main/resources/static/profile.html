@@ -66,7 +66,8 @@
     <div class="profile-header">
         <div class="avatar-wrap">
             <img src="https://ui-avatars.com/api/?name=User&background=6366f1&color=fff" id="profAvatarImg" class="avatar" alt="Avatar">
-            <div class="avatar-edit" onclick="changeAvatar()"><i class="fas fa-camera"></i></div>
+            <div class="avatar-edit" onclick="document.getElementById('profAvatarFile').click()"><i class="fas fa-camera"></i></div>
+            <input type="file" id="profAvatarFile" style="display:none" accept="image/png, image/jpeg, image/jpg" onchange="previewAvatar(this)">
             <input type="hidden" id="profAvatarUrl">
         </div>
         <div class="profile-info">
@@ -157,16 +158,24 @@
                     <label>Mật khẩu hiện tại</label>
                     <input type="password" id="oldPass" required>
                 </div>
-                <div>
-                    <div class="form-group">
-                        <label>Mật khẩu mới</label>
-                        <input type="password" id="newPass" required minlength="6">
-                    </div>
-                    <div class="form-group">
-                        <label>Xác nhận Mật khẩu mới</label>
-                        <input type="password" id="confirmPass" required minlength="6">
+                <div class="form-group">
+                    <label>Mã Xác Nhận OTP</label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <input type="text" id="otpCode" required maxlength="6" style="flex: 1; letter-spacing: 2px;" placeholder="••••••">
+                        <button type="button" class="btn btn-danger" style="padding: 0 1rem; font-size: 0.85rem;" id="btnSendOtpChangePass" onclick="sendOtpForChangePass()">Nhận OTP <i class="fas fa-paper-plane ml-1"></i></button>
                     </div>
                 </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Mật khẩu mới</label>
+                    <input type="password" id="newPass" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Xác nhận Mật khẩu mới</label>
+                    <input type="password" id="confirmPass" required minlength="6">
+                </div>
+            </div>
             </div>
             <button type="submit" class="btn btn-primary" id="btnChangePass"><i class="fas fa-key"></i> Đổi Mật Khẩu</button>
         </form>
@@ -184,7 +193,7 @@
 
     window.onload = async () => {
         try {
-            const res = await fetch('/api/auth/profile');
+            const res = await fetch('/api/auth/profile?t=' + Date.now());
             if (!res.ok) { location.href = 'index.html'; return; }
             const data = await res.json();
             
@@ -243,28 +252,38 @@
         const btn = document.getElementById('btnSaveProfile');
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang lưu...';
         
-        const params = new URLSearchParams({
-            fullName: document.getElementById('profFullName').value.trim(),
-            phone: document.getElementById('profPhone').value.trim(),
-            avatarUrl: document.getElementById('profAvatarUrl').value.trim()
-        });
+        const formData = new FormData();
+        formData.append('fullName', document.getElementById('profFullName').value.trim());
+        formData.append('phone', document.getElementById('profPhone').value.trim());
+        formData.append('avatarUrl', document.getElementById('profAvatarUrl').value.trim());
+        
+        const avatarFile = document.getElementById('profAvatarFile').files[0];
+        if (avatarFile) formData.append('avatarFile', avatarFile);
         
         if (currentRole === 'STAFF') {
-            params.append('agencyName', document.getElementById('staffAgencyName').value.trim());
-            params.append('businessLicense', document.getElementById('staffLicense').value.trim());
-            params.append('taxCode', document.getElementById('staffTaxCode').value.trim());
-            params.append('contactPhone', document.getElementById('staffContactPhone').value.trim());
-            params.append('website', document.getElementById('staffWebsite').value.trim());
-            params.append('address', document.getElementById('staffAddress').value.trim());
-            params.append('description', document.getElementById('staffDesc').value.trim());
-            params.append('logoUrl', document.getElementById('staffLogoUrl').value.trim());
+            formData.append('agencyName', document.getElementById('staffAgencyName').value.trim());
+            formData.append('businessLicense', document.getElementById('staffLicense').value.trim());
+            formData.append('taxCode', document.getElementById('staffTaxCode').value.trim());
+            formData.append('contactPhone', document.getElementById('staffContactPhone').value.trim());
+            formData.append('website', document.getElementById('staffWebsite').value.trim());
+            formData.append('address', document.getElementById('staffAddress').value.trim());
+            formData.append('description', document.getElementById('staffDesc').value.trim());
+            formData.append('logoUrl', document.getElementById('staffLogoUrl').value.trim());
         }
 
         try {
-            const res = await fetch('/api/auth/profile', { method: 'PUT', body: params });
+            const res = await fetch('/api/auth/profile', { method: 'POST', body: formData });
             const data = await res.json();
             showToast(data.message || 'Cập nhật thành công!', !res.ok);
-            if (res.ok) document.getElementById('profNameTitle').innerText = document.getElementById('profFullName').value;
+            if (res.ok) {
+                document.getElementById('profNameTitle').innerText = document.getElementById('profFullName').value;
+                // Cập nhật lại ảnh avatar từ URL server trả về (tránh blob URL tạm thời bị mất sau reload)
+                if (data.avatarUrl) {
+                    const newSrc = data.avatarUrl + '?t=' + Date.now(); // cache-bust
+                    document.getElementById('profAvatarImg').src = newSrc;
+                    document.getElementById('profAvatarUrl').value = data.avatarUrl;
+                }
+            }
         } catch { showToast('Lỗi mạng!', true); }
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-save"></i> Lưu Thay Đổi'; }
     }
@@ -274,6 +293,7 @@
         const oldP = document.getElementById('oldPass').value;
         const newP = document.getElementById('newPass').value;
         const confP = document.getElementById('confirmPass').value;
+        const otpCode = document.getElementById('otpCode').value.trim();
         
         if (newP !== confP) { showToast('Mật khẩu xác nhận không khớp!', true); return; }
         
@@ -281,14 +301,46 @@
         btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang đổi...';
         
         try {
+            const formData = new URLSearchParams();
+            formData.append('oldPassword', oldP);
+            formData.append('newPassword', newP);
+            formData.append('otp', otpCode);
+            
             const res = await fetch('/api/auth/change-password', {
-                method: 'POST', body: new URLSearchParams({ oldPassword: oldP, newPassword: newP })
+                method: 'POST', body: formData
             });
             const data = await res.json();
             showToast(data.message || data.error, !res.ok);
-            if (res.ok) { document.getElementById('oldPass').value=''; document.getElementById('newPass').value=''; document.getElementById('confirmPass').value=''; }
+            if (res.ok) { document.getElementById('oldPass').value=''; document.getElementById('newPass').value=''; document.getElementById('confirmPass').value=''; document.getElementById('otpCode').value=''; }
         } catch { showToast('Lỗi mạng!', true); }
         finally { btn.disabled = false; btn.innerHTML = '<i class="fas fa-key"></i> Đổi Mật Khẩu'; }
+    }
+
+    async function sendOtpForChangePass() {
+        const email = document.getElementById('profEmail').value;
+        if (!email) {
+            showToast('Chưa có thông tin Email!', true);
+            return;
+        }
+
+        const btn = document.getElementById('btnSendOtpChangePass');
+        btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        try {
+            const res = await fetch('/api/auth/send-otp-existing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({ email: email })
+            });
+            const data = await res.json();
+            showToast(data.message || data.error, !res.ok);
+        } catch {
+            showToast('Lỗi mạng không thể gửi OTP!', true);
+        } finally {
+            btn.innerHTML = 'Nhận OTP <i class="fas fa-paper-plane ml-1"></i>';
+            // Disable button for 60s to prevent spam
+            setTimeout(() => { btn.disabled = false; }, 60000);
+        }
     }
 
     async function doLogout() {
@@ -297,11 +349,13 @@
         location.href = 'index.html';
     }
 
-    function changeAvatar() {
-        const url = prompt('Nhập link hình ảnh Avatar mới (http...):', document.getElementById('profAvatarUrl').value);
-        if (url) {
-            document.getElementById('profAvatarUrl').value = url;
-            document.getElementById('profAvatarImg').src = url;
+    function previewAvatar(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('profAvatarImg').src = e.target.result;
+            }
+            reader.readAsDataURL(input.files[0]);
         }
     }
 

@@ -280,9 +280,14 @@
         <!-- ── MAIN ───────────────────────────────────────────── -->
         <main class="main-content">
             <div class="header-top">
-                <div>
-                    <h2 style="font-size:1.4rem;margin-bottom:.2rem">Super Admin Dashboard 👑</h2>
-                    <p style="font-size:.8rem;color:var(--text-muted)">Quản lý toàn bộ hệ thống Smart Tour Đà Lạt</p>
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <button class="mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('show-sidebar')">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div>
+                        <h2 style="font-size:1.4rem;margin-bottom:.2rem">Super Admin 👑</h2>
+                        <p style="font-size:.8rem;color:var(--text-muted)">Hệ thống Smart Tour</p>
+                    </div>
                 </div>
                 <button class="btn btn-primary btn-sm" onclick="refreshAll()">
                     <i class="fas fa-rotate-right"></i> Làm mới
@@ -312,7 +317,7 @@
                     <div class="stat-box">
                         <div class="stat-icon rose"><i class="fas fa-coins"></i></div>
                         <div class="stat-text"><label>Hoa Hồng Hệ Thống (5%)</label><span id="stat-commission"
-                                style="font-size:1rem;background:linear-gradient(to right,#818cf8,#34d399);-webkit-background-clip:text;-webkit-text-fill-color:transparent">—</span>
+                                style="font-size:1rem;background:linear-gradient(to right,#818cf8,#34d399);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent">—</span>
                         </div>
                     </div>
                 </div>
@@ -432,10 +437,11 @@
                         <table class="data-table" id="tableUsers">
                             <thead>
                                 <tr>
-                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 0)" title="Sắp xếp">Khách Hàng <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 0)" title="Sắp xếp">Người Dùng <i class="fas fa-sort text-muted"></i></th>
                                     <th style="cursor:pointer" onclick="sortTable('tableUsers', 1)" title="Sắp xếp">Email <i class="fas fa-sort text-muted"></i></th>
-                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 2)" title="Sắp xếp">Ngày Đăng Ký <i class="fas fa-sort text-muted"></i></th>
-                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 3)" title="Sắp xếp">Trạng Thái <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 2)" title="Sắp xếp">Vai Trò <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 3)" title="Sắp xếp">Ngày Đăng Ký <i class="fas fa-sort text-muted"></i></th>
+                                    <th style="cursor:pointer" onclick="sortTable('tableUsers', 4)" title="Sắp xếp">Trạng Thái <i class="fas fa-sort text-muted"></i></th>
                                     <th style="text-align:right">Thao Tác</th>
                                 </tr>
                             </thead>
@@ -562,11 +568,25 @@
         style="position:fixed;bottom:1.5rem;right:1.5rem;padding:.9rem 1.5rem;border-radius:10px;color:#334155;font-size:.875rem;font-weight:600;transform:translateY(100px);opacity:0;transition:all .35s cubic-bezier(.16,1,.3,1);z-index:9999;box-shadow:0 10px 30px rgba(0,0,0,.4);display:flex;align-items:center;gap:.5rem;min-width:280px;pointer-events:none">
     </div>
 
+    <script>
+        document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                 document.querySelector('.sidebar').classList.remove('show-sidebar');
+            });
+        });
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/main.js"></script>
     <script src="js/admin.js"></script>
+    <script>
+        window.addEventListener('pageshow', async function(event) {
+            try {
+                const res = await fetch('/api/auth/profile?t=' + Date.now());
+                if (!res.ok) { window.location.href = 'login.html'; }
+            } catch (e) { window.location.href = 'login.html'; }
+        });
+    </script>
 </body>
-
 </html>

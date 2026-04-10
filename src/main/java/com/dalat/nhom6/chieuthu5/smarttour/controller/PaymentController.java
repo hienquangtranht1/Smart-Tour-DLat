@@ -70,9 +70,10 @@ public class PaymentController {
             vnp_Params.put("vnp_ReturnUrl", vnp_ReturnUrl);
             vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
 
-            // Thời gian tạo & hết hạn giao dịch (GMT+7)
-            Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+            // Thời gian tạo & hết hạn giao dịch (GMT+7 - Bắt buộc đúng timezone)
+            Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
             SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+            formatter.setTimeZone(TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
             vnp_Params.put("vnp_CreateDate", formatter.format(cld.getTime()));
             cld.add(Calendar.MINUTE, 15);
             vnp_Params.put("vnp_ExpireDate", formatter.format(cld.getTime()));
@@ -276,7 +277,7 @@ public class PaymentController {
         }
 
         // Trả HTML trực tiếp để tránh AuthFilter
-        String targetUrl = success ? "/user.html?paymentSuccess=true" : "/user.html?paymentFailed=true";
+        String targetUrl = success ? "/index.html?paymentSuccess=true" : "/index.html?paymentFailed=true";
         String color = success ? "#10b981" : "#f43f5e";
         String icon  = success ? "&#10003;" : "&#10007;";
         String msg   = success ? "Thanh toán Thành Công!" : "Thanh toán Thất Bại";

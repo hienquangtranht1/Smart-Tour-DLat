@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Demo Network Errors / 404</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background:#f1f5f9; display:flex; align-items:center; justify-content:center;
+            min-height:100vh; font-family:'Segoe UI',sans-serif; text-align:center;
+        }
+        .demo-card {
+            background:white; padding:3rem; border-radius:20px; box-shadow:0 10px 40px rgba(0,0,0,0.1);
+            max-width:500px; width:100%; border:1px solid #e2e8f0;
+        }
+        .btn-demo {
+            display:block; width:100%; padding:1rem; margin-top:1rem; background:#ef4444; color:white;
+            border-radius:10px; text-decoration:none; font-weight:600; cursor:pointer;
+        }
+        .btn-demo.lag { background:#f59e0b; }
+    </style>
+</head>
+<body>
+
+    <div class="demo-card">
+        <h1 style="color:#1e293b; margin-bottom:1rem; font-size:1.8rem"><i class="fas fa-bug text-red-500"></i> Demo Báo Lỗi</h1>
+        <p style="color:#64748b; margin-bottom:2rem; line-height:1.6">Sử dụng trang này để giả lập trạng thái đứt mạng, lag server hoặc nhập sai đường dẫn URL.</p>
+        
+        <a href="/trang-web-nay-chac-chan-khong-ton-tai.html" class="btn-demo">
+            <i class="fas fa-unlink"></i> Giả lập Link bị Hỏng (Test Lỗi 404)
+        </a>
+        
+        <button class="btn-demo lag" onclick="simulateLag()">
+            <i class="fas fa-hourglass-half"></i> Giả lập Lỗi Mạng (Lag Timeout)
+        </button>
+
+        <a href="index.html" class="btn-demo" style="background:#6366f1; margin-top:2rem"> <!-- fix to index -->
+            <i class="fas fa-home"></i> Trở về Trang Chủ
+        </a>
+    </div>
+
+    <script>
+        function simulateLag() {
+            const btn = document.querySelector('.btn-demo.lag');
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải dữ liệu... (Lag)';
+            btn.style.opacity = '0.7';
+            
+            // Giả lập hệ thống lag 5 giây sau đó chuyển đến link hỏng để xem giao diện 404
+            setTimeout(() => {
+                window.location.href = '/ket-noi-that-bai-do-lag.html';
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

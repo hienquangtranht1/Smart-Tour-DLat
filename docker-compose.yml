@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: smarttour-db
+    restart: always
+    command: --innodb-buffer-pool-size=64M --max-connections=50
+    environment:
+      MYSQL_DATABASE: smart_tour_db
+      MYSQL_ROOT_PASSWORD: rootpassword
+    # ĐÃ XÓA MỞ CỔNG 3306 ĐỂ CHỐNG HACKER BÊN NGOÀI
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  app:
+    build: .
+    container_name: smarttour-app
+    restart: always
+    ports:
+      - "80:8080" # Map web port ra ngoài
+    depends_on:
+      - db
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:mysql://db:3306/smart_tour_db?createDatabaseIfNotExist=true&useUnicode=yes&characterEncoding=UTF-8&serverTimezone=Asia/Ho_Chi_Minh
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=rootpassword
+    volumes:
+      - ./uploads:/app/uploads
+
+volumes:
+  mysql_data:

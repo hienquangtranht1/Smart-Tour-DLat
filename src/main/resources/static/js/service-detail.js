@@ -40,7 +40,7 @@ function loadServiceDetails() {
         document.getElementById('serviceDetailContainer').innerHTML = `
             <div class="glass-panel" style="padding: 3rem; text-align: center;">
                 <h2>Không tìm thấy dịch vụ</h2>
-                <a href="user.html" class="btn btn-primary mt-4">Quay lại trang chủ</a>
+                <a href="index.html" class="btn btn-primary mt-4">Quay lại trang chủ</a>
             </div>
         `;
         return;
@@ -61,7 +61,7 @@ function loadServiceDetails() {
             document.getElementById('serviceDetailContainer').innerHTML = `
                 <div class="glass-panel" style="padding: 3rem; text-align: center;">
                     <h2>Lỗi: Không tìm thấy dịch vụ</h2>
-                    <a href="user.html" class="btn btn-primary mt-4">Quay lại trang chủ</a>
+                    <a href="index.html" class="btn btn-primary mt-4">Quay lại trang chủ</a>
                 </div>
             `;
         });
@@ -205,13 +205,15 @@ function initMap(service) {
             if (markersData.length === 0) {
                 // Fallback Dalat center
                 mapInstance = L.map('serviceMap').setView([11.940419, 108.458313], 13);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance);
+                if (typeof addVietnamSovereignty === 'function') addVietnamSovereignty(mapInstance);
+                L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi&gl=VN', { attribution: '&copy; Bản đồ Chủ Quyền VN (Google Maps)' }).addTo(mapInstance);
                 return;
             }
 
             mapInstance = L.map('serviceMap');
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; OpenStreetMap contributors'
+            if (typeof addVietnamSovereignty === 'function') addVietnamSovereignty(mapInstance);
+            L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&hl=vi&gl=VN', {
+                attribution: '&copy; Bản đồ Chủ Quyền Việt Nam (Google Maps Tiled)'
             }).addTo(mapInstance);
 
             const defaultIcon = L.divIcon({
@@ -349,7 +351,7 @@ function submitReview() {
             showToast(body.message || 'Lỗi gửi đánh giá', true);
             // Có thể do chưa đăng nhập
             if (res.status === 401) {
-                setTimeout(() => window.location.href = 'index.html', 1500);
+                setTimeout(() => window.location.href = 'login.html', 1500);
             }
         }
     })
@@ -453,12 +455,12 @@ function confirmBookService(serviceId) {
             document.getElementById('bookingModal').style.display = 'none';
             showToast('🎉 Đặt hàng thành công! Vui lòng chuyển thẻ để thanh toán.');
             setTimeout(() => {
-                window.location.href = 'user.html'; // Tới trang user.html kèm tab history?
+                window.location.href = 'index.html'; // Tới trang chủ kèm tab history?
             }, 1500);
         } else {
             showToast(body.message || body.error || 'Lỗi đặt dịch vụ', true);
             if(res.status === 401) {
-                setTimeout(() => window.location.href = 'index.html', 1500);
+                setTimeout(() => window.location.href = 'login.html', 1500);
             }
         }
     })

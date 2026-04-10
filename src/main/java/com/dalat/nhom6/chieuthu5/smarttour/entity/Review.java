@@ -39,6 +39,9 @@ public class Review {
     @Column(length = 20, nullable = false)
     private String status;
 
+    @Column(name = "is_deleted")
+    private Boolean isDeleted;
+
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
@@ -46,5 +49,6 @@ public class Review {
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         if (this.status == null) this.status = "PENDING";
+        if (this.isDeleted == null) this.isDeleted = false;
     }
 }
