@@ -1,0 +1,580 @@
+package com.dalat.hien.tqh.smarttour.controller;
+
+import com.dalat.hien.tqh.smarttour.entity.Agency;
+import com.dalat.hien.tqh.smarttour.entity.Role;
+import com.dalat.hien.tqh.smarttour.entity.User;
+import com.dalat.hien.tqh.smarttour.repository.AgencyRepository;
+import com.dalat.hien.tqh.smarttour.repository.UserRepository;
+import com.dalat.hien.tqh.smarttour.service.EmailService;
+import com.dalat.hien.tqh.smarttour.service.OtpService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.http.javanet.NetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
+import org.springframework.beans.factory.annotation.Value;
+
+import java.util.*;
+
+@RestController
+@RequestMapping("/api/auth")
+public class AuthController {
+
+    @Autowired private UserRepository userRepository;
+    @Autowired private AgencyRepository agencyRepository;
+    @Autowired private OtpService otpService;
+    @Autowired private EmailService emailService;
+    @Autowired private com.dalat.hien.tqh.smarttour.repository.NotificationRepository notificationRepository;
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
+    @Value("${google.client.id}")
+    private String googleClientId;
+
+    private static final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
+    // ── 0. ĐĂNG NHẬP GOOGLE (OAuth2) ─────────────────────────
+    @PostMapping("/google")
+    public ResponseEntity<?> googleLogin(@RequestParam("credential") String idTokenString,
+                                          HttpServletRequest request) {
+        try {
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                    new NetHttpTransport(), GsonFactory.getDefaultInstance())
+                    .setAudience(Collections.singletonList(googleClientId))
+                    .build();
+
+            GoogleIdToken idToken = verifier.verify(idTokenString);
+            if (idToken == null) {
+                return ResponseEntity.status(401).body(Map.of("status", "error", "message", "Token Google không hợp lệ!"));
+            }
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String googleId = payload.getSubject();
+            String email    = payload.getEmail();
+            String fullName = (String) payload.get("name");
+            String avatar   = (String) payload.get("picture");
+
+            // Tìm user theo googleId (đã từng đăng nhập Google)
+            User user = userRepository.findByGoogleId(googleId).orElse(null);
+
+            if (user == null) {
+                // Kiểm tra email đã tồn tại trong hệ thống bằng tài khoản thường chưa
+                user = userRepository.findByEmail(email).orElse(null);
+                if (user != null) {
+                    // Liên kết tài khoản Google vào account email cũ
+                    user.setGoogleId(googleId);
+                    if (avatar != null && user.getAvatarUrl() == null) user.setAvatarUrl(avatar);
+                    if (fullName != null && user.getFullName() == null) user.setFullName(fullName);
+                    user.setIsEmailVerified(true);
+                    userRepository.save(user);
+                } else {
+                    // Tạo tài khoản mới từ Google
+                    String baseUsername = email.split("@")[0].replaceAll("[^a-zA-Z0-9]", "");
+                    String username = baseUsername;
+                    int suffix = 1;
+                    while (userRepository.existsByUsername(username)) {
+                        username = baseUsername + suffix++;
+                    }
+                    user = User.builder()
+                            .username(username)
+                            .password(passwordEncoder.encode(UUID.randomUUID().toString())) // random pass
+                            .email(email)
+                            .fullName(fullName)
+                            .avatarUrl(avatar)
+                            .googleId(googleId)
+                            .role(Role.USER)
+                            .isLocked(false)
+                            .isEmailVerified(true)
+                            .isActive(true)
+                            .build();
+                    userRepository.save(user);
+                }
+            }
+
+            // Kiểm tra tài khoản có bị khóa không
+            if (Boolean.TRUE.equals(user.getIsLocked())) {
+                return ResponseEntity.status(403).body(Map.of("status", "error", "message", "Tài khoản đã bị khóa bởi Admin!"));
+            }
+
+            if (Boolean.TRUE.equals(user.getIsDeleted())) {
+                return ResponseEntity.status(403).body(Map.of("status", "error", "message", "Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa!"));
+            }
+
+            if (user.getRole() == Role.STAFF) {
+                Optional<Agency> agencyOpt = agencyRepository.findByUserId(user.getId());
+                if (agencyOpt.isPresent() && Boolean.TRUE.equals(agencyOpt.get().getIsDeleted())) {
+                    return ResponseEntity.status(403).body(Map.of("status", "error", "message", "Đại lý của bạn đã bị ngừng hoạt động hoặc xóa!"));
+                }
+            }
+
+            // Tạo session
+            HttpSession session = request.getSession(true);
+            session.setAttribute("USER_ID", user.getId());
+            session.setAttribute("USER_ROLE", user.getRole().name());
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "role", user.getRole().name(),
+                    "fullName", user.getFullName() != null ? user.getFullName() : user.getUsername(),
+                    "avatar", user.getAvatarUrl() != null ? user.getAvatarUrl() : "",
+                    "redirect", user.getRole().name().equals("USER") ? "/index.html" : "/" + user.getRole().name().toLowerCase() + ".html"
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("status", "error", "message", "Lỗi xác thực Google: " + e.getMessage()));
+        }
+    }
+
+    // ── 1. ĐĂNG NHẬP ─────────────────────────────────────────
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestParam("username") String username,
+                                   @RequestParam("password") String password,
+                                   @RequestParam(value = "role", required = false) String role,
+                                   HttpServletRequest request) {
+        Optional<User> userOpt = userRepository.findByUsername(username.trim());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(401).body(Map.of("status","error","message","Sai tài khoản hoặc mật khẩu!"));
+        }
+        User user = userOpt.get();
+
+        String dbPass = user.getPassword();
+        boolean passOk = false;
+
+        // So sánh BCrypt, an toàn với null
+        if (dbPass != null) {
+            try {
+                passOk = passwordEncoder.matches(password, dbPass);
+            } catch (Exception ignored) {}
+            
+            if (!passOk && dbPass.equals(password)) {
+                passOk = true;
+            }
+        }
+
+        if (!passOk) {
+            return ResponseEntity.status(401).body(Map.of("status","error","message","Sai tài khoản hoặc mật khẩu!"));
+        }
+
+        if (Boolean.TRUE.equals(user.getIsLocked())) {
+            return ResponseEntity.status(403).body(Map.of("status","error","message","Tài khoản đã bị khóa!"));
+        }
+
+        if (Boolean.TRUE.equals(user.getIsDeleted())) {
+            return ResponseEntity.status(403).body(Map.of("status","error","message","Tài khoản của bạn đã bị vô hiệu hóa hoặc xóa!"));
+        }
+
+        Role userRoleEnum = user.getRole();
+        if (userRoleEnum == null) {
+            userRoleEnum = Role.USER;
+        }
+        
+        // Kiểm tra đúng vai trò được chọn trên form
+        if (role != null && !role.trim().isEmpty() && !role.equalsIgnoreCase(userRoleEnum.name())) {
+            return ResponseEntity.status(401).body(Map.of("status", "error", "message", "Tài khoản không thuộc phân quyền này!"));
+        }
+
+        String roleStr = userRoleEnum.name();
+
+        // Nếu STAFF, kiểm tra đại lý đã được duyệt chưa hoặc bị khóa/xóa không
+        if (userRoleEnum == Role.STAFF) {
+            Optional<Agency> agencyOpt = agencyRepository.findByUserId(user.getId());
+            if (agencyOpt.isEmpty()) {
+                return ResponseEntity.status(403).body(Map.of("status","error","message","Tài khoản Đại lý không tồn tại!"));
+            }
+            Agency agency = agencyOpt.get();
+            if (Boolean.TRUE.equals(agency.getIsDeleted())) {
+                return ResponseEntity.status(403).body(Map.of("status","error","message","Đại lý của bạn đã bị ngừng hoạt động hoặc xóa!"));
+            }
+            if (!Boolean.TRUE.equals(agency.getIsApproved())) {
+                return ResponseEntity.status(403).body(Map.of("status","error","message","Tài khoản Đại lý của bạn đang chờ Admin phê duyệt!"));
+            }
+        }
+
+        HttpSession session = request.getSession(true);
+        session.setAttribute("USER_ID", user.getId());
+        session.setAttribute("USER_ROLE", roleStr);
+
+        return ResponseEntity.ok(Map.of(
+            "status", "success",
+            "role", roleStr,
+            "redirect", roleStr.equals("USER") ? "/index.html" : "/" + roleStr.toLowerCase() + ".html"
+        ));
+    }
+
+    // ── 2. GỬI OTP VỀ GMAIL ─────────────────────────────────
+    @PostMapping("/send-otp")
+    public ResponseEntity<?> sendOtp(@RequestParam("email") String email,
+                                     @RequestParam(value = "username", required = false) String username) {
+        email = email.trim().toLowerCase();
+        // Kiểm tra username trùng nếu có gửi kèm
+        if (username != null && !username.trim().isEmpty()) {
+            if (userRepository.existsByUsername(username.trim())) {
+                return ResponseEntity.badRequest().body(Map.of("status","error","message","Tên đăng nhập '" + username.trim() + "' đã được sử dụng!"));
+            }
+        }
+        if (userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Email này đã được đăng ký!"));
+        }
+        try {
+            String otp = otpService.generateAndStore(email);
+            emailService.sendOtpEmail(email, otp);
+            return ResponseEntity.ok(Map.of("status","ok","message","Đã gửi mã OTP đến email " + email + ". Vui lòng kiểm tra hộp thư!"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("status","error","message","Gửi email thất bại: " + e.getMessage()));
+        }
+    }
+
+    // ── 3. XÁC THỰC OTP ─────────────────────────────────────
+    @PostMapping("/verify-otp")
+    public ResponseEntity<?> verifyOtp(@RequestParam("email") String email, @RequestParam("otp") String otp) {
+        boolean valid = otpService.verify(email.trim().toLowerCase(), otp.trim());
+        if (valid) return ResponseEntity.ok(Map.of("status","ok","message","OTP hợp lệ!"));
+        return ResponseEntity.badRequest().body(Map.of("status","error","message","Mã OTP không đúng hoặc đã hết hạn!"));
+    }
+
+    // ── 3.1. GỬI OTP CHO TÀI KHOẢN ĐÃ TỒN TẠI (QUÊN MK / ĐỔI MK) ──
+    @PostMapping("/send-otp-existing")
+    public ResponseEntity<?> sendOtpExisting(@RequestParam("email") String email) {
+        email = email.trim().toLowerCase();
+        if (!userRepository.existsByEmail(email)) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Email này chưa được đăng ký trong hệ thống!"));
+        }
+        try {
+            String otp = otpService.generateAndStore(email);
+            emailService.sendOtpEmail(email, otp);
+            return ResponseEntity.ok(Map.of("status","ok","message","Đã gửi mã xác nhận đến email " + email + ". Vui lòng kiểm tra hộp thư!"));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("status","error","message","Gửi email thất bại: " + e.getMessage()));
+        }
+    }
+
+    // ── 3.2. KHÔI PHỤC MẬT KHẨU (QUÊN MK) ───────────────────
+    @PostMapping("/forgot-password/reset")
+    public ResponseEntity<?> resetPassword(
+            @RequestParam("email") String email,
+            @RequestParam("otp") String otp,
+            @RequestParam("newPassword") String newPassword) {
+        
+        if (newPassword == null || newPassword.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Mật khẩu phải chứa ít nhất 6 ký tự!"));
+        }
+
+        email = email.trim().toLowerCase();
+        if (!otpService.verify(email, otp.trim())) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Mã OTP không đúng hoặc đã hết hạn!"));
+        }
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Không tìm thấy tài khoản!"));
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        
+        return ResponseEntity.ok(Map.of("status","ok","message","Khôi phục mật khẩu thành công! Bạn có thể đăng nhập ngay."));
+    }
+
+    // ── 4. ĐĂNG KÝ ──────────────────────────────────────────
+    @PostMapping("/register")
+    public ResponseEntity<?> register(
+            @RequestParam("username") String username,
+            @RequestParam("password") String password,
+            @RequestParam("email") String email,
+            @RequestParam(value = "fullName", required = false) String fullName,
+            @RequestParam(value = "phone", required = false) String phone,
+            @RequestParam("otp") String otp,
+            @RequestParam(value = "role", defaultValue = "USER") String role,
+            // Trường dành riêng cho Staff/Đại lý
+            @RequestParam(value = "agencyName", required = false) String agencyName,
+            @RequestParam(value = "businessLicense", required = false) String businessLicense,
+            @RequestParam(value = "taxCode", required = false) String taxCode,
+            @RequestParam(value = "address", required = false) String address,
+            @RequestParam(value = "contactPhone", required = false) String contactPhone,
+            @RequestParam(value = "website", required = false) String website) {
+
+        // --- VALIDATION CƠ BẢN ---
+        if (username == null || username.trim().length() < 4 || username.trim().contains(" ")) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Tên đăng nhập phải từ 4 ký tự và không chứa khoảng trắng!"));
+        }
+        if (password == null || password.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Mật khẩu phải chứa ít nhất 6 ký tự!"));
+        }
+        if (email == null || !email.trim().matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Định dạng email không hợp lệ!"));
+        }
+        if (phone != null && !phone.trim().isEmpty() && !phone.trim().matches("^\\d{10,11}$")) {
+            return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Số điện thoại không hợp lệ (10-11 số)!"));
+        }
+        if ("STAFF".equalsIgnoreCase(role)) {
+            if (agencyName == null || agencyName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Tên đại lý không được để trống!"));
+            }
+            if (businessLicense == null || businessLicense.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("status", "error", "message", "Mã số kinh doanh không được để trống!"));
+            }
+        }
+        // --- END VALIDATION ---
+
+        // Kiểm tra OTP
+        if (!otpService.verify(email.trim().toLowerCase(), otp.trim())) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Mã OTP không đúng hoặc đã hết hạn!"));
+        }
+
+        if (userRepository.existsByUsername(username.trim())) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Tên đăng nhập đã tồn tại!"));
+        }
+        if (userRepository.existsByEmail(email.trim())) {
+            return ResponseEntity.badRequest().body(Map.of("status","error","message","Email đã được đăng ký!"));
+        }
+
+        Role userRole;
+        try { userRole = Role.valueOf(role.toUpperCase()); }
+        catch (Exception e) { userRole = Role.USER; }
+
+        User newUser = User.builder()
+                .username(username.trim())
+                .password(passwordEncoder.encode(password))
+                .email(email.trim().toLowerCase())
+                .fullName(fullName)
+                .phone(phone)
+                .role(userRole)
+                .isEmailVerified(true) // Đã xác thực qua OTP
+                .build();
+
+        newUser = userRepository.save(newUser);
+
+        // Nếu đăng ký làm Đại lý thì tạo thêm bản ghi Agency
+        if (userRole == Role.STAFF) {
+            Agency agency = Agency.builder()
+                    .user(newUser)
+                    .agencyName(agencyName != null ? agencyName : username + " Agency")
+                    .businessLicense(businessLicense)
+                    .taxCode(taxCode)
+                    .address(address)
+                    .contactPhone(contactPhone != null ? contactPhone : phone)
+                    .website(website)
+                    .isApproved(false) // Chờ Admin duyệt
+                    .build();
+            agencyRepository.save(agency);
+            
+            // Gửi thông báo WebSocket cho admin
+            try {
+                messagingTemplate.convertAndSend("/topic/admin/notifications", (Object) Map.of(
+                    "type", "NEW_AGENCY",
+                    "message", "🔔 Đại lý mới: " + agency.getAgencyName() + " vừa đăng ký chờ duyệt!"
+                ));
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi chuông báo: " + e.getMessage());
+            }
+
+            return ResponseEntity.ok(Map.of("status","ok","message","Đăng ký Đại lý thành công! Vui lòng chờ Admin phê duyệt tài khoản trước khi đăng nhập."));
+        }
+
+        return ResponseEntity.ok(Map.of("status","ok","message","Đăng ký thành công! Bạn có thể đăng nhập ngay."));
+    }
+
+    // ── 5. XEM & CẬP NHẬT HỒ SƠ ────────────────────────────
+    @GetMapping("/profile")
+    public ResponseEntity<?> getProfile(HttpServletRequest request) {
+        Integer userId = getUserIdFromSession(request);
+        if (userId == null) return ResponseEntity.status(401).body(Map.of("error","Chưa đăng nhập!"));
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) return ResponseEntity.status(404).body(Map.of("error","Không tìm thấy tài khoản!"));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("id", user.getId());
+        result.put("username", user.getUsername());
+        result.put("email", user.getEmail());
+        result.put("fullName", user.getFullName());
+        result.put("phone", user.getPhone());
+        result.put("avatarUrl", user.getAvatarUrl());
+        result.put("role", user.getRole().name());
+        result.put("isEmailVerified", user.getIsEmailVerified());
+        result.put("createdAt", user.getCreatedAt());
+
+        // Thêm thông tin Agency nếu là Staff
+        if (user.getRole() == Role.STAFF) {
+            agencyRepository.findByUserId(userId).ifPresent(a -> {
+                Map<String, Object> agInfo = new LinkedHashMap<>();
+                agInfo.put("id", a.getId());
+                agInfo.put("agencyName", a.getAgencyName());
+                agInfo.put("businessLicense", a.getBusinessLicense());
+                agInfo.put("taxCode", a.getTaxCode());
+                agInfo.put("address", a.getAddress());
+                agInfo.put("contactPhone", a.getContactPhone());
+                agInfo.put("website", a.getWebsite());
+                agInfo.put("description", a.getDescription());
+                agInfo.put("logoUrl", a.getLogoUrl());
+                agInfo.put("isApproved", a.getIsApproved());
+                result.put("agency", agInfo);
+            });
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    @PostMapping("/profile")
+    public ResponseEntity<?> updateProfile(
+            @RequestParam(value = "fullName", required = false) String fullName,
+            @RequestParam(value = "phone", required = false) String phone,
+            @RequestParam(value = "avatarUrl", required = false) String avatarUrl,
+            @RequestParam(value = "avatarFile", required = false) org.springframework.web.multipart.MultipartFile avatarFile,
+            @RequestParam(value = "agencyName", required = false) String agencyName,
+            @RequestParam(value = "taxCode", required = false) String taxCode,
+            @RequestParam(value = "address", required = false) String address,
+            @RequestParam(value = "contactPhone", required = false) String contactPhone,
+            @RequestParam(value = "website", required = false) String website,
+            @RequestParam(value = "description", required = false) String description,
+            @RequestParam(value = "logoUrl", required = false) String logoUrl,
+            HttpServletRequest request) {
+
+        Integer userId = getUserIdFromSession(request);
+        if (userId == null) return ResponseEntity.status(401).body(Map.of("error","Chưa đăng nhập!"));
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) return ResponseEntity.status(404).body(Map.of("error","Không tìm thấy tài khoản!"));
+
+        if (fullName != null && fullName.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Họ tên không được để trống!"));
+        }
+        if (phone != null && !phone.trim().isEmpty() && !phone.trim().matches("^\\d{10,11}$")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Số điện thoại không hợp lệ (10-11 số)!"));
+        }
+        if (user.getRole() == Role.STAFF) {
+            if (agencyName != null && agencyName.trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Tên đại lý không được để trống!"));
+            }
+        }
+
+        if (fullName != null) user.setFullName(fullName);
+        if (phone != null) user.setPhone(phone);
+        
+        if (avatarFile != null && !avatarFile.isEmpty()) {
+            try {
+                String originalName = avatarFile.getOriginalFilename();
+                if (originalName != null && !originalName.toLowerCase().matches(".*\\.(jpg|jpeg|png)$")) {
+                    throw new RuntimeException("Chỉ cho phép tải lên Ảnh (.jpg, .png)");
+                }
+                String uploadDir = "uploads/";
+                java.nio.file.Path uploadPath = java.nio.file.Paths.get(uploadDir);
+                if (!java.nio.file.Files.exists(uploadPath)) { java.nio.file.Files.createDirectories(uploadPath); }
+                String ext = (originalName != null && originalName.contains(".")) ? originalName.substring(originalName.lastIndexOf(".")) : ".jpg";
+                String newFileName = "avatar_" + System.currentTimeMillis() + ext;
+                java.nio.file.Path filePath = uploadPath.resolve(newFileName);
+                java.nio.file.Files.copy(avatarFile.getInputStream(), filePath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                user.setAvatarUrl("/uploads/" + newFileName);
+            } catch (Exception e) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error", 
+                    "message", "Lỗi tải ảnh lên: " + (e.getMessage() != null ? e.getMessage() : "Quyền ghi file trên VPS hoặc định dạng không đúng")
+                ));
+            }
+        } else if (avatarUrl != null && !avatarUrl.isEmpty()) {
+            user.setAvatarUrl(avatarUrl);
+        }
+        
+        userRepository.save(user);
+
+        // Cập nhật thông tin Agency nếu là Staff
+        if (user.getRole() == Role.STAFF) {
+            agencyRepository.findByUserId(userId).ifPresent(a -> {
+                if (agencyName != null) a.setAgencyName(agencyName);
+                if (taxCode != null) a.setTaxCode(taxCode);
+                if (address != null) a.setAddress(address);
+                if (contactPhone != null) a.setContactPhone(contactPhone);
+                if (website != null) a.setWebsite(website);
+                if (description != null) a.setDescription(description);
+                if (logoUrl != null) a.setLogoUrl(logoUrl);
+                agencyRepository.save(a);
+            });
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "status", "ok",
+            "message", "Cập nhật hồ sơ thành công!",
+            "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : ""
+        ));
+    }
+
+    // ── 6. ĐỔI MẬT KHẨU ────────────────────────────────────
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestParam("oldPassword") String oldPassword,
+            @RequestParam("newPassword") String newPassword,
+            @RequestParam("otp") String otp,
+            HttpServletRequest request) {
+
+        Integer userId = getUserIdFromSession(request);
+        if (userId == null) return ResponseEntity.status(401).body(Map.of("error","Chưa đăng nhập!"));
+
+        if (newPassword == null || newPassword.length() < 6) {
+            return ResponseEntity.badRequest().body(Map.of("error","Mật khẩu mới phải chứa ít nhất 6 ký tự!"));
+        }
+
+        User user = userRepository.findById(userId).orElse(null);
+        if (user == null) return ResponseEntity.status(404).body(Map.of("error","Không tìm thấy tài khoản!"));
+
+        // Xác thực mã OTP trước khi cho đổi
+        if (!otpService.verify(user.getEmail(), otp.trim())) {
+            return ResponseEntity.badRequest().body(Map.of("error","Mã OTP không đúng hoặc đã hết hạn!"));
+        }
+
+        boolean oldPassOk = passwordEncoder.matches(oldPassword, user.getPassword());
+        if (!oldPassOk && !user.getPassword().equals(oldPassword)) {
+            return ResponseEntity.badRequest().body(Map.of("error","Mật khẩu cũ không đúng!"));
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+        return ResponseEntity.ok(Map.of("status","ok","message","Đổi mật khẩu thành công!"));
+    }
+
+    // ── 7. ĐĂNG XUẤT (hỗ trợ cả GET lẫn POST để tránh lỗi 405) ──
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session != null) session.invalidate();
+        return ResponseEntity.ok(Map.of("status","ok","message","Đăng xuất thành công!"));
+    }
+
+    @GetMapping("/logout")
+    public void logoutGet(HttpServletRequest request, jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        HttpSession session = request.getSession(false);
+        if (session != null) session.invalidate();
+        // Xóa cookie JSESSIONID
+        jakarta.servlet.http.Cookie cookie = new jakarta.servlet.http.Cookie("JSESSIONID", "");
+        cookie.setMaxAge(0);
+        cookie.setPath("/");
+        response.addCookie(cookie);
+        response.sendRedirect("/login.html");
+    }
+
+    // ── HELPER ────────────────────────────────────────────────
+    private Integer getUserIdFromSession(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) return null;
+        Object attr = session.getAttribute("USER_ID");
+        if (attr instanceof Integer i) return i;
+        if (attr instanceof String s) { try { return Integer.parseInt(s); } catch (Exception ignored) {} }
+        return null;
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<?> handleException(Exception e) {
+        e.printStackTrace();
+        return ResponseEntity.status(500).body(Map.of(
+            "status", "error",
+            "message", "Lỗi Server: " + e.getClass().getSimpleName() + " - " + e.getMessage()
+        ));
+    }
+}
+

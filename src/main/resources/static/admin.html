@@ -297,11 +297,11 @@
             <!-- TAB: Dashboard -->
             <div id="dashboard" class="tab-content animate-fade-in">
                 <div class="stat-grid" style="grid-template-columns:repeat(5,1fr)">
-                    <div class="stat-box">
+                    <div class="stat-box" style="cursor:pointer" onclick="document.querySelector('.nav-link[data-target=\'users\']').click()">
                         <div class="stat-icon blue"><i class="fas fa-users"></i></div>
                         <div class="stat-text"><label>Thành Viên</label><span id="stat-users">—</span></div>
                     </div>
-                    <div class="stat-box">
+                    <div class="stat-box" style="cursor:pointer" onclick="document.querySelector('.nav-link[data-target=\'agencies\']').click()">
                         <div class="stat-icon green"><i class="fas fa-building"></i></div>
                         <div class="stat-text"><label>Đại Lý Liên Kết</label><span id="stat-agencies">—</span></div>
                     </div>
@@ -311,13 +311,11 @@
                     </div>
                     <div class="stat-box">
                         <div class="stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
-                        <div class="stat-text"><label>Doanh Thu (PAID)</label><span id="stat-revenue"
-                                style="font-size:1rem">—</span></div>
+                        <div class="stat-text"><label>Doanh Thu (PAID)</label><span id="stat-revenue" style="font-size:1rem">—</span></div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-icon rose"><i class="fas fa-coins"></i></div>
-                        <div class="stat-text"><label>Hoa Hồng Hệ Thống (5%)</label><span id="stat-commission"
-                                style="font-size:1rem;background:linear-gradient(to right,#818cf8,#34d399);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent">—</span>
+                        <div class="stat-text"><label>Hoa Hồng Hệ Thống (5%)</label><span id="stat-commission" style="font-size:1rem;background:linear-gradient(to right,#818cf8,#34d399);background-clip:text;-webkit-background-clip:text;-webkit-text-fill-color:transparent">—</span>
                         </div>
                     </div>
                 </div>
@@ -343,6 +341,7 @@
                                 <tr>
                                     <th>Tên Đại Lý</th>
                                     <th>Trạng Thái</th>
+                                    <th style="text-align:right">Chi Tiết</th>
                                 </tr>
                             </thead>
                             <tbody id="dash-agencies-preview"></tbody>
@@ -358,6 +357,7 @@
                                 <tr>
                                     <th>Tên Dịch Vụ</th>
                                     <th>Loại</th>
+                                    <th style="text-align:right">Chi Tiết</th>
                                 </tr>
                             </thead>
                             <tbody id="dash-services-preview"></tbody>
@@ -379,14 +379,15 @@
                             <thead>
                                 <tr>
                                     <th>Tên Đại Lý</th>
-                                    <th>Giấy Phép KD</th>
+                                    <th>Mã số doanh nghiệp</th>
+                                    <th>Mã số Thuế</th>
                                     <th>Trạng Thái</th>
                                     <th style="text-align:right">Thao Tác</th>
                                 </tr>
                             </thead>
                             <tbody id="agenciesList">
                                 <tr class="empty-row">
-                                    <td colspan="4"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td>
+                                    <td colspan="5"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td>
                                 </tr>
                             </tbody>
                         </table>

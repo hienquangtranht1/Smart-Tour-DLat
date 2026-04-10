@@ -8,7 +8,7 @@
 		<version>4.0.4</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.dalat.nhom6.chieuthu5</groupId>
+	<groupId>com.dalat.hien.tqh</groupId>
 	<artifactId>smarttour</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
 	<name/>

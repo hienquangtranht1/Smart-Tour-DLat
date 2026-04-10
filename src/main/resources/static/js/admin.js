@@ -72,8 +72,8 @@ async function fetchServices(isPreview = false) {
             const tBody = document.getElementById('dash-services-preview');
             if (tBody) {
                 tBody.innerHTML = data.slice(0, 3).map(s =>
-                    `<tr><td>${s.name}</td><td><span class="badge badge-info">${s.type}</span></td></tr>`
-                ).join('') || '<tr><td colspan="2" class="empty-cell">Chưa có dịch vụ nào</td></tr>';
+                    `<tr><td>${s.name}</td><td><span class="badge badge-info">${s.type}</span></td><td style="text-align:right"><button class="btn btn-sm view-btn" onclick="showServiceDetail(${s.id})" title="Xem Chi tiết"><i class="fas fa-search"></i> Chi Tiết</button></td></tr>`
+                ).join('') || '<tr><td colspan="3" class="empty-cell">Chưa có dịch vụ nào</td></tr>';
             }
             return;
         }
@@ -267,8 +267,8 @@ async function fetchAgencies(isPreview = false) {
                     const badge = a.isApproved
                         ? '<span class="badge badge-success">Đã Duyệt</span>'
                         : '<span class="badge badge-warn">Chờ Duyệt</span>';
-                    return `<tr><td>${a.agencyName}</td><td>${badge}</td></tr>`;
-                }).join('') || '<tr><td colspan="2" class="empty-cell">Chưa có đại lý nào</td></tr>';
+                    return `<tr><td>${a.agencyName}</td><td>${badge}</td><td style="text-align:right"><button class="btn btn-sm view-btn" onclick="showAgencyDetail(${a.id})" title="Xem Chi Tiết"><i class="fas fa-search"></i> Chi Tiết</button></td></tr>`;
+                }).join('') || '<tr><td colspan="3" class="empty-cell">Chưa có đại lý nào</td></tr>';
             }
             return;
         }
@@ -277,7 +277,7 @@ async function fetchAgencies(isPreview = false) {
         if (!tbody) return;
         tbody.innerHTML = '';
         if (data.length === 0) {
-            tbody.innerHTML = '<tr class="empty-row"><td colspan="4">Chưa có Đại Lý nào đăng ký</td></tr>';
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Chưa có Đại Lý nào đăng ký</td></tr>';
             return;
         }
         data.forEach(a => {
@@ -302,7 +302,8 @@ async function fetchAgencies(isPreview = false) {
             tbody.innerHTML += `
             <tr>
                 <td><b>${a.agencyName}</b></td>
-                <td>${a.licenseNumber || '—'}</td>
+                <td>${a.businessLicense || '—'}</td>
+                <td>${a.taxCode || '—'}</td>
                 <td>${badge}</td>
                 <td style="text-align:right">${actions}</td>
             </tr>`;
