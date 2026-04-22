@@ -1,6 +1,5 @@
 <div align="center">
 
-  <img src="https://via.placeholder.com/1000x300?text=SMART+TOUR+DA+LAT+-+AI+Powered+Travel+Platform" alt="Smart Tour Da Lat Banner" width="100%"/>
 
   <h1>🌲 Smart Tour Đà Lạt 🌲</h1>
   
