@@ -69,7 +69,7 @@ Dự án áp dụng mô hình kiến trúc MVC kết hợp các Design Pattern h
 | **Database & ORM** | `MySQL 8.x`, `Spring Data JPA`, `Hibernate` | Lưu trữ dữ liệu, ánh xạ Object-Relational |
 | **Security & Auth** | `AuthFilter`, `JWT/Session`, `Bcrypt` | Phân quyền, mã hóa mật khẩu, kiểm soát truy cập |
 | **Integration** | `VNPay SDK`, `JavaMailSender`, `Spring WebSocket` | Thanh toán trực tuyến, Gửi Email, Real-time |
-| **Frontend** | `HTML5`, `CSS3`, `Vanilla JS`, `AJAX` | Giao diện người dùng tương tác, Responsive |
+| **Frontend** | `HTML5`, `CSS3`, `TypeScript`,`Vanilla JS`, `AJAX` | Giao diện người dùng tương tác, Responsive |
 | **DevOps** | `Docker`, `Docker Compose`, `Maven` | Đóng gói, Container hóa, Triển khai nhanh gọn |
 
 ---
