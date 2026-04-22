@@ -31,19 +31,6 @@
 > **Smart Tour Da Lat** không chỉ là một trang web đặt dịch vụ du lịch thông thường. Đây là một hệ sinh thái số hóa toàn diện dành cho "Thành phố ngàn hoa", kết nối trực tiếp Khách du lịch, Đại lý cung cấp dịch vụ và Nhà quản lý. Đặc biệt, ứng dụng tiên phong ứng dụng **Trí tuệ nhân tạo (AI)** để tự động thiết kế các lịch trình cá nhân hóa, mang lại trải nghiệm du lịch liền mạch, thông minh và tối ưu chi phí.
 
 ---
-
-<details>
-  <summary><b>📑 Mở rộng Mục lục (Table of Contents)</b></summary>
-  
-  1. [Giới thiệu](#-giới-thiệu)
-  2. [Tính năng Nổi bật](#-tính-năng-nổi-bật)
-  3. [Hệ sinh thái Công nghệ](#️-công-nghệ-sử-dụng)
-  4. [Kiến trúc & Cấu trúc mã nguồn](#-kiến-trúc--cấu-trúc-dự-án)
-  5. [Hướng dẫn Cài đặt & Triển khai](#-hướng-dẫn-cài-đặt)
-  6. [Hình ảnh Giao diện](#-hình-ảnh-thực-tế-screenshots)
-  7. [Định hướng Phát triển (Roadmap)](#-định-hướng-phát-triển-roadmap)
-</details>
-
 ---
 
 ## ✨ Tính năng Nổi bật
@@ -140,29 +127,7 @@ Bash
 ./mvnw clean package -DskipTests
 java -jar target/smarttour-0.0.1-SNAPSHOT.jar
 ---
-## 📸 Hình ảnh Thực tế (Screenshots)
-Ghi chú: Thay thế các đường dẫn Placeholder dưới đây bằng link ảnh thực tế trong thư mục uploads hoặc kho lưu trữ ảnh của bạn.
-<div align="center">
-<table>
-<tr>
-<td align="center"><b>Trang chủ & Tìm kiếm (User)</b></td>
-<td align="center"><b>Lịch trình thông minh (AI Itinerary)</b></td>
-</tr>
-<tr>
-<td><img src="https://www.google.com/search?q=https://via.placeholder.com/450x250%3Ftext%3DHomepage%2BUI" alt="Trang chủ"></td>
-<td><img src="https://www.google.com/search?q=https://via.placeholder.com/450x250%3Ftext%3DAI%2BGenerated%2BPlan" alt="Lịch trình AI"></td>
-</tr>
-<tr>
-<td align="center"><b>Thanh toán VNPay (Checkout)</b></td>
-<td align="center"><b>Bảng điều khiển (Admin Dashboard)</b></td>
-</tr>
-<tr>
-<td><img src="https://www.google.com/search?q=https://via.placeholder.com/450x250%3Ftext%3DVNPay%2BGateway" alt="VNPay"></td>
-<td><img src="https://www.google.com/search?q=https://via.placeholder.com/450x250%3Ftext%3DAdmin%2BDashboard" alt="Dashboard"></td>
-</tr>
-</table>
-</div>
----
+
 ## 🗺️ Định hướng Phát triển (Roadmap)
 [x] Tích hợp thanh toán trực tuyến (VNPay).
 [x] Triển khai hệ thống thông báo Real-time (WebSocket).
@@ -170,4 +135,4 @@ Ghi chú: Thay thế các đường dẫn Placeholder dưới đây bằng link 
 [ ] Bổ sung tính năng Đa ngôn ngữ (i18n) cho du khách quốc tế.
 [ ] Chuyển đổi Frontend sang các Framework SPA (ReactJS/VueJS).
 [ ] Tích hợp hệ thống Chatbot Hỗ trợ khách hàng 24/7.
----
+
